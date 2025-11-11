@@ -1,0 +1,48 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Output and temporary files
+output/
+*.png
+*.jpg
+*.pdf
+
+# Test files
+tests/
+.pytest_cache/
+
+# Documentation
+docs/
+*.md
+
+# Environment files
+.env
+.env.local
+
+# UV cache
+.uv/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/

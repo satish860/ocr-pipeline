@@ -1,0 +1,27 @@
+name = "ocr-pipeline"
+main = "src/api/main.py"
+compatibility_date = "2025-01-10"
+
+[env.production]
+name = "ocr-pipeline-prod"
+
+# Container configuration
+[[containers]]
+name = "ocr-api"
+dockerfile = "Dockerfile"
+
+# Environment variables (set via wrangler secret)
+# wrangler secret put OPENROUTER_API_KEY
+[vars]
+ENVIRONMENT = "production"
+
+# Route configuration
+[[routes]]
+pattern = "ocr-api.your-domain.com/*"
+custom_domain = true
+
+# Limits and scaling
+[limits]
+# Adjust based on your needs
+cpu_ms = 50000
+memory_mb = 512
