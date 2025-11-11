@@ -1,346 +1,253 @@
-"""Test script for QwenVL layout detection"""
+"""OCR Pipeline Test - End-to-End Testing"""
 
+import sys
+from pathlib import Path
+from PIL import ImageDraw, ImageFont
+
+from src.ocr_pipeline.image_preprocessor import ImagePreprocessor
 from src.ocr_pipeline.layout_detector import LayoutDetector
 from src.ocr_pipeline.region_extractor import RegionExtractor
-from src.ocr_pipeline.image_preprocessor import ImagePreprocessor
-from PIL import Image, ImageDraw, ImageFont
-import sys
+from src.ocr_pipeline.ocr_extractor import OCRExtractor
+from src.ocr_pipeline.spatial_analyzer import SpatialAnalyzer
 
 
-def create_sample_document():
-    """Create a simple test document image"""
-    # Create a white image
-    width, height = 800, 1000
-    image = Image.new('RGB', (width, height), 'white')
-    draw = ImageDraw.Draw(image)
-
-    # Try to use a decent font, fallback to default
-    try:
-        title_font = ImageFont.truetype("arial.ttf", 40)
-        header_font = ImageFont.truetype("arial.ttf", 28)
-        text_font = ImageFont.truetype("arial.ttf", 18)
-    except:
-        # Fallback to default font
-        title_font = ImageFont.load_default()
-        header_font = ImageFont.load_default()
-        text_font = ImageFont.load_default()
-
-    # Draw title
-    draw.text((50, 50), "Sample Document", fill='black', font=title_font)
-
-    # Draw section header
-    draw.text((50, 150), "Introduction", fill='black', font=header_font)
-
-    # Draw paragraph
-    para_text = """This is a sample document for testing layout detection.
-The layout detector should identify this as a paragraph.
-It contains multiple lines of text."""
-    draw.text((50, 200), para_text, fill='black', font=text_font)
-
-    # Draw another section
-    draw.text((50, 320), "Methods", fill='black', font=header_font)
-
-    # Draw a "table" (just boxes with text)
-    draw.rectangle([50, 370, 750, 550], outline='black', width=2)
-    draw.line([50, 410, 750, 410], fill='black', width=2)
-    draw.line([400, 370, 400, 550], fill='black', width=2)
-
-    draw.text((60, 380), "Header 1", fill='black', font=text_font)
-    draw.text((410, 380), "Header 2", fill='black', font=text_font)
-    draw.text((60, 430), "Data 1", fill='black', font=text_font)
-    draw.text((410, 430), "Data 2", fill='black', font=text_font)
-
-    # Draw conclusion section
-    draw.text((50, 600), "Conclusion", fill='black', font=header_font)
-    para2_text = """This test document helps verify that the layout
-detector can identify different document elements."""
-    draw.text((50, 650), para2_text, fill='black', font=text_font)
-
-    # Save the image
-    image.save("test_document.png")
-    print("[INFO] Created test_document.png")
-
-    return image
+# Configuration
+OUTPUT_DIR = Path("output")
+BBOX_COLORS = {
+    'table': '#FF0000',
+    'paragraph': '#00FF00',
+    'header': '#FF00FF',
+    'handwritten': '#FF1493',
+}
 
 
-def test_layout_detection():
-    """Test layout detection with both HTML and JSON formats"""
-
+def test_ocr_pipeline(image_path: str):
+    """
+    Complete OCR pipeline test:
+    1. Preprocess image (deskew)
+    2. Detect layout with QwenVL
+    3. Extract regions
+    4. OCR each region to markdown
+    4.5. Analyze spatial relationships
+    5. Generate spatially-aware markdown
+    6. Visualize results
+    """
     print("\n" + "="*60)
-    print("TESTING QWENVL LAYOUT DETECTOR")
+    print("OCR PIPELINE TEST")
     print("="*60)
+    print(f"\nInput: {image_path}")
 
-    # Create sample document
-    print("\n[1] Creating sample document...")
-    image = create_sample_document()
-
-    # Initialize detector
-    print("\n[2] Initializing LayoutDetector...")
-    try:
-        detector = LayoutDetector()
-        print("[SUCCESS] LayoutDetector initialized")
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize: {e}")
+    # Validate input
+    image_path_obj = Path(image_path)
+    if not image_path_obj.exists():
+        print(f"\n[ERROR] Image not found: {image_path}")
         return
 
-    # Test HTML format
-    print("\n" + "-"*60)
-    print("TESTING HTML FORMAT")
-    print("-"*60)
+    # Create output directory
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    # Step 1: Preprocess - Deskew image
+    print("\n[1/5] Preprocessing: Deskewing image...")
+    preprocessor = ImagePreprocessor()
+    deskewed_image, angle = preprocessor.deskew_image(image_path)
+    print(f"      Rotation correction: {angle:.2f} degrees")
+
+    # Step 2: Detect Layout with QwenVL
+    print("\n[2/5] Layout Detection: Running QwenVL...")
+    detector = LayoutDetector()
+    layout_result = detector.detect_layout(deskewed_image, output_format="json")
+    print(f"      Detected {len(layout_result['elements'])} elements")
+
+    # Step 3: Extract Regions
+    print("\n[3/5] Region Extraction: Extracting bounding boxes...")
+    extractor = RegionExtractor()
+    regions = extractor.extract_regions(deskewed_image, layout_result)
+    print(f"      Extracted {len(regions)} regions")
+
+    # Step 4: OCR Extraction - Convert regions to markdown
+    print("\n[4/5] OCR Extraction: Converting regions to markdown...")
+    ocr = OCRExtractor()
+    markdown_outputs = []
+
+    for region in regions:
+        region_index = region['index']
+        region_type = region['type']
+        region_bbox = region['bbox']
+        region_image = region['image']
+
+        print(f"      Processing region {region_index}/{len(regions)} ({region_type})...")
+
+        try:
+            # Extract text with context
+            markdown_text = ocr.extract_text(region_image, element_type=region_type)
+
+            # Save individual region markdown
+            region_md_path = OUTPUT_DIR / f"region_{region_index}_{region_type}.md"
+            with open(region_md_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_text)
+
+            # Store for combined output
+            markdown_outputs.append({
+                'index': region_index,
+                'type': region_type,
+                'bbox': region_bbox,
+                'markdown': markdown_text
+            })
+
+        except Exception as e:
+            print(f"      [WARNING] Failed to extract region {region_index}: {e}")
+            markdown_outputs.append({
+                'index': region_index,
+                'type': region_type,
+                'bbox': region_bbox,
+                'markdown': f"[Error extracting text: {e}]"
+            })
+
+    print(f"      Extracted text from {len(markdown_outputs)} regions")
+
+    # Step 4.5: Spatial Analysis - Understand region relationships
+    print("\n[4.5/5] Spatial Analysis: Analyzing region relationships...")
+    spatial_analyzer = SpatialAnalyzer()
+
+    # Merge markdown_outputs back into regions for analysis
+    for i, region in enumerate(regions):
+        matching_md = next((md for md in markdown_outputs if md['index'] == region['index']), None)
+        if matching_md:
+            region['markdown'] = matching_md['markdown']
+
+    # Analyze relationships
+    regions_with_relationships = spatial_analyzer.analyze_relationships(regions)
+
+    # Group by vertical alignment (useful for tables/rows)
+    aligned_groups = spatial_analyzer.group_by_vertical_alignment(regions_with_relationships)
+    print(f"      Found {len(aligned_groups)} vertically-aligned groups")
+
+    # Create combined markdown document with spatial awareness
+    output_name = image_path_obj.stem
+    combined_md_path = OUTPUT_DIR / f"{output_name}_complete.md"
+
+    with open(combined_md_path, 'w', encoding='utf-8') as f:
+        f.write(f"# OCR Extraction Results\n\n")
+        f.write(f"**Source:** {image_path}\n\n")
+        f.write(f"**Total Regions:** {len(markdown_outputs)}\n\n")
+        f.write("---\n\n")
+
+        # Generate spatially-aware markdown
+        processed_indices = set()
+
+        for group in aligned_groups:
+            # Check if this group has mixed content (e.g., table + handwritten)
+            if len(group) > 1:
+                # Check types in group
+                types = [r['type'] for r in group]
+
+                # If we have table + handwritten on same row, merge them
+                if 'table' in types or 'paragraph' in types:
+                    main_region = group[0]  # Leftmost region
+                    related_regions = group[1:]  # Right-side regions
+
+                    f.write(f"<!-- Region {main_region['index']}: {main_region['type']} {main_region['bbox']} -->\n\n")
+                    f.write(main_region.get('markdown', ''))
+
+                    # Add related content as annotations
+                    if related_regions:
+                        f.write("\n\n**Related content (spatial):**\n")
+                        for rel in related_regions:
+                            f.write(f"- *{rel['type']}*: {rel.get('markdown', '')}\n")
+
+                    f.write("\n\n---\n\n")
+
+                    # Mark all as processed
+                    for r in group:
+                        processed_indices.add(r['index'])
+                else:
+                    # Different types, output separately
+                    for region in group:
+                        if region['index'] not in processed_indices:
+                            f.write(f"<!-- Region {region['index']}: {region['type']} {region['bbox']} -->\n\n")
+                            f.write(region.get('markdown', ''))
+                            f.write("\n\n---\n\n")
+                            processed_indices.add(region['index'])
+            else:
+                # Single region in group
+                region = group[0]
+                if region['index'] not in processed_indices:
+                    f.write(f"<!-- Region {region['index']}: {region['type']} {region['bbox']} -->\n\n")
+                    f.write(region.get('markdown', ''))
+                    f.write("\n\n---\n\n")
+                    processed_indices.add(region['index'])
+
+    print(f"      Saved spatially-aware markdown: {combined_md_path}")
+
+    # Step 5: Visualize Results
+    print("\n[5/5] Visualization: Creating annotated image...")
+
+    # Draw bounding boxes
+    draw = ImageDraw.Draw(deskewed_image)
     try:
-        result = detector.detect_layout("test_document.png", output_format="html")
+        font = ImageFont.truetype("arial.ttf", 30)
+    except:
+        font = ImageFont.load_default()
 
-        print(f"\n[INFO] Format: {result['format']}")
-        print(f"[INFO] Image dimensions: {result['image_dimensions']}")
-        print(f"[INFO] Detected {len(result['elements'])} elements")
+    for idx, element in enumerate(layout_result['elements'], 1):
+        bbox = element['bbox']
+        elem_type = element['type']
+        color = BBOX_COLORS.get(elem_type, '#FFFFFF')
 
-        print("\nDetected Elements (HTML):")
-        for i, elem in enumerate(result['elements'], 1):
-            print(f"\n  Element {i}:")
-            print(f"    Type: {elem['type']}")
-            if elem.get('class'):
-                print(f"    Class: {elem['class']}")
-            print(f"    BBox: {elem['bbox']}")
-            print(f"    Content: {elem['content'][:80]}..." if len(elem['content']) > 80 else f"    Content: {elem['content']}")
+        x1, y1, x2, y2 = bbox
 
-        print("\n[HTML RAW OUTPUT PREVIEW]:")
-        print(result['raw_output'][:500] + "..." if len(result['raw_output']) > 500 else result['raw_output'])
+        # Draw bounding box
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=8)
 
-    except Exception as e:
-        print(f"[ERROR] HTML format test failed: {e}")
-        import traceback
-        traceback.print_exc()
+        # Draw label
+        label_bg = [x1, y1 - 50, x1 + 400, y1]
+        draw.rectangle(label_bg, fill=color)
+        draw.text((x1 + 10, y1 - 45), f"{idx}: {elem_type}", fill='black', font=font)
 
-    # Test JSON format
-    print("\n" + "-"*60)
-    print("TESTING JSON FORMAT")
-    print("-"*60)
-    try:
-        result = detector.detect_layout("test_document.png", output_format="json")
+    # Save outputs
+    output_name = image_path_obj.stem
+    deskewed_path = OUTPUT_DIR / f"{output_name}_deskewed.png"
+    annotated_path = OUTPUT_DIR / f"{output_name}_annotated.png"
 
-        print(f"\n[INFO] Format: {result['format']}")
-        print(f"[INFO] Image dimensions: {result['image_dimensions']}")
-        print(f"[INFO] Detected {len(result['elements'])} elements")
+    deskewed_image.save(annotated_path)
+    extractor.save_regions(regions, output_dir=OUTPUT_DIR)
 
-        print("\nDetected Elements (JSON):")
-        for i, elem in enumerate(result['elements'], 1):
-            print(f"\n  Element {i}:")
-            print(f"    Type: {elem['type']}")
-            print(f"    BBox: {elem['bbox']}")
-            print(f"    Content: {elem['content'][:80]}..." if len(elem['content']) > 80 else f"    Content: {elem['content']}")
+    print(f"      Saved annotated image: {annotated_path}")
 
-        print("\n[JSON RAW OUTPUT PREVIEW]:")
-        print(result['raw_output'][:500] + "..." if len(result['raw_output']) > 500 else result['raw_output'])
+    # Print Summary
+    print("\n" + "="*60)
+    print("DETECTION SUMMARY")
+    print("="*60)
 
-    except Exception as e:
-        print(f"[ERROR] JSON format test failed: {e}")
-        import traceback
-        traceback.print_exc()
+    # Count by type
+    element_counts = {}
+    for element in layout_result['elements']:
+        elem_type = element['type']
+        element_counts[elem_type] = element_counts.get(elem_type, 0) + 1
+
+    print(f"\nTotal elements: {len(layout_result['elements'])}")
+    print("\nBreakdown by type:")
+    for elem_type, count in sorted(element_counts.items()):
+        color = BBOX_COLORS.get(elem_type, 'N/A')
+        print(f"  {elem_type:15} {count:3}  (Color: {color})")
+
+    print(f"\nOutput directory: {OUTPUT_DIR}/")
+    print("  - Annotated image with bounding boxes")
+    print(f"  - {len(regions)} extracted region images")
+    print(f"  - {len(markdown_outputs)} region markdown files")
+    print(f"  - Combined markdown: {combined_md_path.name}")
 
     print("\n" + "="*60)
     print("TEST COMPLETE")
     print("="*60)
 
 
-def test_real_image():
-    """Test with real image from input folder"""
-
-    print("\n" + "="*60)
-    print("TESTING WITH REAL IMAGE: input/image-1.jpg")
-    print("="*60)
-
-    # Initialize detector
-    print("\n[1] Initializing LayoutDetector...")
-    try:
-        detector = LayoutDetector()
-        print("[SUCCESS] LayoutDetector initialized")
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize: {e}")
-        return
-
-    # Test with JSON format
-    print("\n[2] Running layout detection (JSON format)...")
-    try:
-        result = detector.detect_layout("input/image-1.jpg", output_format="json")
-
-        print(f"\n[INFO] Format: {result['format']}")
-        print(f"[INFO] Image dimensions: {result['image_dimensions']['width']} x {result['image_dimensions']['height']}")
-        print(f"[INFO] Detected {len(result['elements'])} elements")
-
-        print("\nDetected Elements:")
-        for i, elem in enumerate(result['elements'], 1):
-            print(f"\n  Element {i}:")
-            print(f"    Type: {elem['type']}")
-            print(f"    BBox: {elem['bbox']}")
-            content_preview = elem['content'][:80] + "..." if len(elem['content']) > 80 else elem['content']
-            print(f"    Content: {content_preview}")
-
-        print("\n[RAW OUTPUT]:")
-        print(result['raw_output'])
-
-    except Exception as e:
-        print(f"[ERROR] Test failed: {e}")
-        import traceback
-        traceback.print_exc()
-
-    print("\n" + "="*60)
-    print("REAL IMAGE TEST COMPLETE")
-    print("="*60)
-
-
-def test_region_extraction():
-    """Test region extraction pipeline"""
-
-    print("\n" + "="*60)
-    print("TESTING REGION EXTRACTION PIPELINE")
-    print("="*60)
-
-    image_path = "input/2e1b63c5-761d-48b9-b3b5-f263c3db4e30_images/page_0004.png"
-
-    # Step 1: Layout Detection
-    print("\n[1] Running layout detection...")
-    detector = LayoutDetector()
-    layout_result = detector.detect_layout(image_path, output_format="json")
-
-    print(f"[INFO] Detected {len(layout_result['elements'])} elements")
-
-    # Step 2: Region Extraction
-    print("\n[2] Extracting regions...")
-    extractor = RegionExtractor()
-    regions = extractor.extract_regions(image_path, layout_result)
-
-    print(f"[INFO] Extracted {len(regions)} regions")
-
-    # Display region info
-    print("\n" + "-"*60)
-    print("EXTRACTED REGIONS:")
-    print("-"*60)
-    for region in regions:
-        print(f"\nRegion {region['index']}:")
-        print(f"  Type: {region['type']}")
-        print(f"  BBox: {region['bbox']}")
-        print(f"  Size: {region['width']}x{region['height']} pixels")
-        try:
-            content_preview = region['content_preview'][:60] + "..." if len(region['content_preview']) > 60 else region['content_preview']
-            print(f"  Content Preview: {content_preview}")
-        except UnicodeEncodeError:
-            print(f"  Content Preview: [Contains non-ASCII characters]")
-
-    # Step 3: Save regions
-    print("\n[3] Saving regions to output directory...")
-    saved_files = extractor.save_regions(regions, output_dir="output")
-
-    print(f"\n[SUCCESS] Saved {len(saved_files)} region images")
-
-    print("\n" + "="*60)
-    print("REGION EXTRACTION TEST COMPLETE")
-    print("="*60)
-    print("\nCheck the 'output' folder for extracted region images!")
-
-
-def test_deskew():
-    """Test deskewing and layout detection on page 4"""
-
-    print("\n" + "="*60)
-    print("TESTING DESKEW ON PAGE 4")
-    print("="*60)
-
-    input_path = "input/2e1b63c5-761d-48b9-b3b5-f263c3db4e30_images/page_0004.png"
-
-    # Step 1: Load and deskew image
-    print("\n[1] Deskewing image...")
-    preprocessor = ImagePreprocessor()
-    deskewed_image, angle = preprocessor.deskew_image(input_path)
-
-    # Save deskewed image
-    deskewed_path = "output/page_0004_deskewed.png"
-    deskewed_image.save(deskewed_path)
-    print(f"[OK] Saved deskewed image to: {deskewed_path}")
-    print(f"[INFO] Rotation correction: {angle:.2f} degrees")
-
-    # Step 2: Run layout detection on deskewed image
-    print("\n[2] Running layout detection on deskewed image...")
-    detector = LayoutDetector()
-    result = detector.detect_layout(deskewed_image, output_format="json")
-
-    print(f"[OK] Detected {len(result['elements'])} elements")
-
-    # Step 3: Visualize results
-    print("\n[3] Creating visualization...")
-    draw = ImageDraw.Draw(deskewed_image)
-
-    # Define colors
-    colors = {
-        'table': '#FF0000',
-        'paragraph': '#00FF00',
-        'header': '#FF00FF',
-        'handwritten': '#FF1493',
-    }
-
-    try:
-        font = ImageFont.truetype("arial.ttf", 30)
-    except:
-        font = ImageFont.load_default()
-
-    # Draw bounding boxes
-    for idx, element in enumerate(result['elements'], 1):
-        bbox = element['bbox']
-        elem_type = element['type']
-        color = colors.get(elem_type, '#FFFFFF')
-
-        x1, y1, x2, y2 = bbox
-        draw.rectangle([x1, y1, x2, y2], outline=color, width=8)
-
-        # Draw label
-        label_bg_coords = [x1, y1 - 50, x1 + 400, y1]
-        draw.rectangle(label_bg_coords, fill=color)
-        draw.text((x1 + 10, y1 - 45), f"{idx}: {elem_type}", fill='black', font=font)
-
-    # Save annotated image
-    annotated_path = "output/page_0004_deskewed_annotated.png"
-    deskewed_image.save(annotated_path)
-    print(f"[OK] Saved annotated image to: {annotated_path}")
-
-    # Step 4: Print summary
-    print("\n" + "="*60)
-    print("DETECTION SUMMARY (After Deskew)")
-    print("="*60)
-
-    element_counts = {}
-    for element in result['elements']:
-        elem_type = element['type']
-        element_counts[elem_type] = element_counts.get(elem_type, 0) + 1
-
-    print(f"\nTotal elements detected: {len(result['elements'])}")
-    print("\nBreakdown by type:")
-    for elem_type, count in sorted(element_counts.items()):
-        print(f"  {elem_type}: {count}")
-
-    print("\n" + "="*60)
-    print("FILES CREATED")
-    print("="*60)
-    print(f"  1. {deskewed_path}")
-    print(f"  2. {annotated_path}")
-    print("\nCompare with original:")
-    print("  uv run python test_layout_detector.py --visualize")
-
-    print("\n" + "="*60)
-    print("DESKEW TEST COMPLETE")
-    print("="*60)
-
-
 if __name__ == "__main__":
-    import sys
+    if len(sys.argv) < 2:
+        print("Usage: uv run python test_layout_detector.py <image_path>")
+        print("\nExample:")
+        print("  uv run python test_layout_detector.py input/2e1b63c5-761d-48b9-b3b5-f263c3db4e30_images/page_0004.png")
+        sys.exit(1)
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--real":
-        test_real_image()
-    elif len(sys.argv) > 1 and sys.argv[1] == "--extract":
-        test_region_extraction()
-    elif len(sys.argv) > 1 and sys.argv[1] == "--deskew":
-        test_deskew()
-    else:
-        test_layout_detection()
-        print("\n\nTips:")
-        print("  --real    : Test with input/image-1.jpg")
-        print("  --extract : Test region extraction pipeline")
-        print("  --deskew  : Test deskewing on page 4 with visualization")
+    image_path = sys.argv[1]
+    test_ocr_pipeline(image_path)
