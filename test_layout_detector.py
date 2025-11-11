@@ -21,7 +21,7 @@ BBOX_COLORS = {
 }
 
 
-def test_ocr_pipeline(image_path: str):
+def test_ocr_pipeline(image_path: str, cleanup_input: bool = False):
     """
     Complete OCR pipeline test:
     1. Preprocess image (deskew)
@@ -31,6 +31,11 @@ def test_ocr_pipeline(image_path: str):
     4.5. Analyze spatial relationships
     5. Generate spatially-aware markdown
     6. Visualize results
+    7. Optionally cleanup input image (useful for PDF-to-image conversions)
+
+    Args:
+        image_path: Path to input image
+        cleanup_input: Delete input image after processing (default: False)
     """
     print("\n" + "="*60)
     print("OCR PIPELINE TEST")
@@ -80,11 +85,6 @@ def test_ocr_pipeline(image_path: str):
         try:
             # Extract text with context
             markdown_text = ocr.extract_text(region_image, element_type=region_type)
-
-            # Save individual region markdown
-            region_md_path = OUTPUT_DIR / f"region_{region_index}_{region_type}.md"
-            with open(region_md_path, 'w', encoding='utf-8') as f:
-                f.write(markdown_text)
 
             # Store for combined output
             markdown_outputs.append({
@@ -206,11 +206,9 @@ def test_ocr_pipeline(image_path: str):
 
     # Save outputs
     output_name = image_path_obj.stem
-    deskewed_path = OUTPUT_DIR / f"{output_name}_deskewed.png"
     annotated_path = OUTPUT_DIR / f"{output_name}_annotated.png"
 
     deskewed_image.save(annotated_path)
-    extractor.save_regions(regions, output_dir=OUTPUT_DIR)
 
     print(f"      Saved annotated image: {annotated_path}")
 
@@ -233,13 +231,19 @@ def test_ocr_pipeline(image_path: str):
 
     print(f"\nOutput directory: {OUTPUT_DIR}/")
     print("  - Annotated image with bounding boxes")
-    print(f"  - {len(regions)} extracted region images")
-    print(f"  - {len(markdown_outputs)} region markdown files")
     print(f"  - Combined markdown: {combined_md_path.name}")
 
     print("\n" + "="*60)
     print("TEST COMPLETE")
     print("="*60)
+
+    # Optional cleanup: Delete input image after processing
+    if cleanup_input:
+        try:
+            image_path_obj.unlink()
+            print(f"\n[CLEANUP] Deleted input image: {image_path}")
+        except Exception as e:
+            print(f"\n[WARNING] Failed to delete input image: {e}")
 
 
 if __name__ == "__main__":

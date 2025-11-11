@@ -109,7 +109,8 @@ class RegionExtractor:
     def save_regions(
         self,
         regions: List[Dict],
-        output_dir: Union[str, Path] = "output"
+        output_dir: Union[str, Path] = "output",
+        save_images: bool = False
     ) -> List[str]:
         """
         Save extracted regions to files.
@@ -117,10 +118,14 @@ class RegionExtractor:
         Args:
             regions: List of region dictionaries from extract_regions()
             output_dir: Directory to save region images
+            save_images: Whether to save individual region images (default: False)
 
         Returns:
-            List of saved file paths
+            List of saved file paths (empty if save_images=False)
         """
+        if not save_images:
+            return []
+
         # Create output directory if it doesn't exist
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -148,7 +153,8 @@ class RegionExtractor:
         self,
         image_input: Union[str, Path, Image.Image],
         layout_result: Dict,
-        output_dir: Union[str, Path] = "output"
+        output_dir: Union[str, Path] = "output",
+        save_images: bool = False
     ) -> List[Dict]:
         """
         Convenience method to extract and save regions in one call.
@@ -157,15 +163,16 @@ class RegionExtractor:
             image_input: Path to image file or PIL Image object
             layout_result: Result dictionary from LayoutDetector.detect_layout()
             output_dir: Directory to save region images
+            save_images: Whether to save individual region images (default: False)
 
         Returns:
-            List of region dictionaries with added 'filepath' key
+            List of region dictionaries with added 'filepath' key (if save_images=True)
         """
         # Extract regions
         regions = self.extract_regions(image_input, layout_result)
 
         # Save regions
-        saved_files = self.save_regions(regions, output_dir)
+        saved_files = self.save_regions(regions, output_dir, save_images)
 
         # Add filepath to each region
         for region, filepath in zip(regions, saved_files):
