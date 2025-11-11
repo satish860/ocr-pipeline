@@ -105,26 +105,14 @@ Health check endpoint.
 
 ## Deployment
 
-### Cloudflare Containers (Recommended)
-1. Install Wrangler CLI:
-   ```bash
-   npm install -g wrangler
-   ```
+### Railway (Recommended - Easiest)
+1. Go to https://railway.app
+2. Sign up with GitHub
+3. New Project → Deploy from GitHub repo → Select `ocr-pipeline`
+4. Add environment variable: `OPENROUTER_API_KEY`
+5. Railway auto-deploys! ✅
 
-2. Authenticate:
-   ```bash
-   wrangler login
-   ```
-
-3. Set secrets:
-   ```bash
-   wrangler secret put OPENROUTER_API_KEY
-   ```
-
-4. Deploy:
-   ```bash
-   wrangler deploy
-   ```
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 
 ### Docker (Local/Any Platform)
 1. Build image:
