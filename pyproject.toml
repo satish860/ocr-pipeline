@@ -1,0 +1,36 @@
+[project]
+name = "ocr-pipeline"
+version = "0.1.0"
+description = "OCR pipeline using QwenVL for layout detection and Mistral AI for text extraction"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.14.2",
+    "numpy>=1.24.0",
+    "opencv-python>=4.8.0",
+    "openai>=2.7.1",
+    "pillow>=10.0.0",
+    "pymupdf>=1.24.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+ocr-pipeline = "ocr_pipeline.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
