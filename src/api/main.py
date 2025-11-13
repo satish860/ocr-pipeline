@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 
 from src.ocr_pipeline.image_preprocessor import ImagePreprocessor
+from src.ocr_pipeline.document_classifier import DocumentClassifier
 from src.ocr_pipeline.layout_detector import LayoutDetector
 from src.ocr_pipeline.region_extractor import RegionExtractor
 from src.ocr_pipeline.ocr_extractor import OCRExtractor
@@ -23,6 +24,7 @@ app = FastAPI(
 
 # Initialize pipeline components
 preprocessor = ImagePreprocessor()
+classifier = DocumentClassifier(verbose=False)  # Disable verbose for API
 detector = LayoutDetector()
 extractor = RegionExtractor()
 ocr = OCRExtractor()
@@ -66,16 +68,27 @@ async def process_image(
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
 
-        # Step 1: Preprocess (deskew)
-        deskewed_image, angle = preprocessor.deskew_image(image)
+        # Step 1: Classify document type and detect rotation
+        classification_result = classifier.classify_and_detect_rotation(image)
+        document_type = classification_result['document_type']
+        rotation_degrees = classification_result['rotation_degrees']
+        confidence = classification_result['confidence']
 
-        # Step 2: Detect layout with QwenVL (via OpenRouter)
+        # Step 2: Apply rotation correction if needed
+        if rotation_degrees != 0:
+            # Rotate counter-clockwise by the detected angle
+            image = image.rotate(rotation_degrees, expand=True)
+
+        # Step 3: Fine deskew for small angle corrections
+        deskewed_image, fine_angle = preprocessor.deskew_image(image)
+
+        # Step 4: Detect layout with QwenVL (via OpenRouter)
         layout_result = detector.detect_layout(deskewed_image, output_format="json")
 
-        # Step 3: Extract regions
+        # Step 5: Extract regions
         regions = extractor.extract_regions(deskewed_image, layout_result)
 
-        # Step 4: OCR each region (via OpenRouter Mistral)
+        # Step 6: OCR each region (via OpenRouter Mistral)
         markdown_outputs = []
         for region in regions:
             try:
@@ -98,7 +111,7 @@ async def process_image(
                     'markdown': f"[Error extracting text: {e}]"
                 })
 
-        # Step 5: Analyze spatial relationships
+        # Step 7: Analyze spatial relationships
         for i, region in enumerate(regions):
             matching_md = next(
                 (md for md in markdown_outputs if md['index'] == region['index']),
@@ -112,13 +125,13 @@ async def process_image(
             regions_with_relationships
         )
 
-        # Step 6: Generate combined markdown
+        # Step 8: Generate combined markdown
         combined_markdown = generate_combined_markdown(
             aligned_groups,
             file.filename
         )
 
-        # Step 7: Optionally create annotated image
+        # Step 9: Optionally create annotated image
         annotated_image_base64 = None
         if include_annotated_image:
             annotated_image_base64 = create_annotated_image(
@@ -130,8 +143,12 @@ async def process_image(
         response = {
             "success": True,
             "filename": file.filename,
+            "document_type": document_type,
+            "rotation_degrees": rotation_degrees,
+            "confidence": round(confidence, 3),
             "detected_elements": len(layout_result['elements']),
-            "rotation_correction_degrees": round(angle, 2),
+            "rotation_correction_degrees": round(rotation_degrees + fine_angle, 2),
+            "output_format": "markdown",  # For now, always markdown (form routing comes later)
             "markdown": combined_markdown,
             "regions": [
                 {
