@@ -61,6 +61,49 @@ class DocumentClassifier:
         # Chosen for: High accuracy on document understanding, good at layout analysis
         self.model = "google/gemini-2.5-flash"
 
+    def classify_and_detect_rotation(self, image_input: Union[str, Path, Image.Image]) -> Dict:
+        """
+        Combined method: Detect rotation AND classify document type in one call.
+
+        This is the recommended method for efficiency - loads image once and performs both operations.
+
+        Args:
+            image_input: Path to image file or PIL Image object
+
+        Returns:
+            Dictionary containing:
+            - rotation_degrees: 0, 90, 180, or 270
+            - document_type: "form", "cheque", or "general"
+            - confidence: confidence score (0.0 to 1.0)
+            - reasoning: brief explanation of classification
+
+        Example:
+            >>> classifier = DocumentClassifier()
+            >>> result = classifier.classify_and_detect_rotation('form.png')
+            >>> print(f"Type: {result['document_type']}, Rotation: {result['rotation_degrees']}°")
+        """
+        # Load image once
+        if isinstance(image_input, (str, Path)):
+            image = Image.open(image_input)
+        elif isinstance(image_input, Image.Image):
+            image = image_input
+        else:
+            raise ValueError("image_input must be a file path or PIL Image object")
+
+        # Detect rotation
+        rotation = self.detect_rotation(image)
+
+        # Classify document type
+        classification = self.classify_document_type(image)
+
+        # Combine results
+        return {
+            'rotation_degrees': rotation,
+            'document_type': classification['document_type'],
+            'confidence': classification['confidence'],
+            'reasoning': classification['reasoning']
+        }
+
     def detect_rotation(self, image_input: Union[str, Path, Image.Image]) -> int:
         """
         Detect document rotation angle using hybrid approach.
