@@ -17,11 +17,13 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml ./
 COPY README.md ./
 
+# Copy source code (needed for editable install)
+COPY src/ ./src/
+
 # Install Python dependencies using uv
 RUN uv pip install --system -e .
 
-# Copy application code
-COPY src/ ./src/
+# Copy remaining application code
 COPY scripts/ ./scripts/
 COPY test_layout_detector.py ./
 
