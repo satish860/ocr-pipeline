@@ -127,11 +127,6 @@ def test_ocr_pipeline(image_path: str, cleanup_input: bool = False):
     combined_md_path = OUTPUT_DIR / f"{output_name}_complete.md"
 
     with open(combined_md_path, 'w', encoding='utf-8') as f:
-        f.write(f"# OCR Extraction Results\n\n")
-        f.write(f"**Source:** {image_path}\n\n")
-        f.write(f"**Total Regions:** {len(markdown_outputs)}\n\n")
-        f.write("---\n\n")
-
         # Generate spatially-aware markdown
         processed_indices = set()
 

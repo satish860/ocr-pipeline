@@ -158,9 +158,6 @@ async def process_image(
 def generate_combined_markdown(aligned_groups, filename: str) -> str:
     """Generate spatially-aware combined markdown from aligned groups"""
     lines = []
-    lines.append(f"# OCR Extraction Results\n\n")
-    lines.append(f"**Source:** {filename}\n\n")
-    lines.append("---\n\n")
 
     processed_indices = set()
 
