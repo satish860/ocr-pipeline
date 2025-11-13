@@ -83,8 +83,13 @@ def test_ocr_pipeline(image_path: str, cleanup_input: bool = False):
         print(f"      Processing region {region_index}/{len(regions)} ({region_type})...")
 
         try:
-            # Extract text with context
-            markdown_text = ocr.extract_text(region_image, element_type=region_type)
+            # Extract text with context (Option B: save chart images)
+            markdown_text = ocr.extract_text(
+                region_image,
+                element_type=region_type,
+                output_dir=str(OUTPUT_DIR),
+                region_index=region_index
+            )
 
             # Store for combined output
             markdown_outputs.append({

@@ -143,10 +143,10 @@ def test_json_extraction(sample_name: str = "sample_1_TABLE"):
     print("\nInitializing JSON extractor (Claude Haiku 3.5)...")
     extractor = JSONExtractor()
 
-    # Extract JSON
-    print("Extracting JSON from markdown...")
+    # Extract JSON (with multimodal support)
+    print("Extracting JSON from markdown with multimodal support...")
     try:
-        predicted_json = extractor.extract(markdown, json_schema)
+        predicted_json = extractor.extract(markdown, json_schema, image_dir=str(output_dir))
         print("  Extraction successful!")
         print(f"  Predicted JSON keys: {list(predicted_json.keys())}")
 

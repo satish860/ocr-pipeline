@@ -3,11 +3,17 @@ JSON Extractor Module
 
 Converts markdown OCR output to structured JSON according to provided schema.
 Uses Claude Haiku 4.5 via OpenRouter for extraction.
+Supports multimodal extraction (text + images) for improved accuracy.
 """
 
+import base64
+import io
 import json
 import os
-from typing import Any, Dict
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from PIL import Image
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -35,13 +41,20 @@ class JSONExtractor:
 
         self.model = "anthropic/claude-haiku-4.5"
 
-    def extract(self, markdown: str, json_schema: Dict[str, Any]) -> Dict[str, Any]:
+    def extract(
+        self,
+        markdown: str,
+        json_schema: Dict[str, Any],
+        image_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Extract structured JSON from markdown according to schema.
+        Supports multimodal extraction with chart images.
 
         Args:
-            markdown: Markdown text from OCR pipeline
+            markdown: Markdown text from OCR pipeline (may contain [CHART_IMAGE: filename] placeholders)
             json_schema: JSON schema defining expected structure
+            image_dir: Optional directory containing chart images (for multimodal extraction)
 
         Returns:
             Structured JSON matching the schema
@@ -49,15 +62,26 @@ class JSONExtractor:
         Raises:
             ValueError: If extraction fails or returns invalid JSON
         """
-        prompt = self._build_extraction_prompt(markdown, json_schema)
+        # Parse markdown to find chart image references
+        chart_images = []
+        if image_dir:
+            chart_images = self._find_and_load_chart_images(markdown, image_dir)
+
+        # Build system prompt and user message
+        system_prompt = self._build_system_prompt(json_schema)
+        user_message = self._build_user_message(markdown, chart_images)
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
                         "role": "user",
-                        "content": prompt
+                        "content": user_message
                     }
                 ],
                 temperature=0.1,  # Low temperature for consistency
@@ -148,6 +172,117 @@ $4.3 Parent Category B
 Extract the data now:"""
 
         return prompt
+
+    def _build_system_prompt(self, schema: Dict[str, Any]) -> str:
+        """Build system prompt with JSON schema and extraction rules."""
+        schema_str = json.dumps(schema, indent=2)
+
+        return f"""You are a JSON extraction specialist. Extract structured data from markdown text and images according to the provided JSON schema.
+
+**JSON Schema:**
+```json
+{schema_str}
+```
+
+**Extraction Rules:**
+1. Analyze BOTH the markdown text AND any provided images
+2. Cross-reference information between text regions and visual elements
+3. For charts/graphs visible in images:
+   - Extract ALL data points, labels, and values visible
+   - Look for parent categories in nearby text regions
+   - Combine hierarchical data (parent + child segments) into single arrays
+4. The markdown may contain region markers like `<!-- Region X: type -->` - use these for spatial context
+5. Chart placeholders like `[CHART_IMAGE: filename]` indicate visual chart data
+6. Extract all fields defined in the schema
+7. If a field is not present, use null or omit based on schema requirements
+8. Ensure all data types match the schema (strings, numbers, arrays, objects)
+9. Preserve the exact structure defined in the schema
+10. Return ONLY valid JSON matching the schema structure (no code blocks, no explanations)
+
+**Important for charts with legends/callouts:**
+- When you see a chart image WITH nearby text blocks containing dollar amounts or category names
+- Those text blocks are PART of the chart data (parent categories or additional segments)
+- Include them in the same data array as the chart contents"""
+
+    def _build_user_message(self, markdown: str, chart_images: List[Dict]) -> List[Dict]:
+        """Build multimodal user message with text and chart images."""
+        content = []
+
+        # Add markdown text first
+        content.append({
+            "type": "text",
+            "text": f"Extract structured data from this document.\n\n**Markdown Content:**\n```markdown\n{markdown}\n```"
+        })
+
+        # Add chart images
+        for chart in chart_images:
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{chart['base64']}"
+                }
+            })
+            # Add context about which chart this is
+            content.append({
+                "type": "text",
+                "text": f"\n[This is the image for: {chart['filename']}]\n"
+            })
+
+        return content
+
+    def _find_and_load_chart_images(self, markdown: str, image_dir: str) -> List[Dict]:
+        """
+        Find [CHART_IMAGE: filename] placeholders in markdown and load the images.
+
+        Args:
+            markdown: Markdown text with chart placeholders
+            image_dir: Directory containing chart images
+
+        Returns:
+            List of dicts with 'filename' and 'base64' keys
+        """
+        chart_images = []
+        image_dir_path = Path(image_dir)
+
+        # Find all [CHART_IMAGE: filename] placeholders
+        pattern = r'\[CHART_IMAGE:\s*([^\]]+)\]'
+        matches = re.findall(pattern, markdown)
+
+        print(f"\n[Multimodal] Found {len(matches)} chart image references in markdown")
+
+        for filename in matches:
+            filename = filename.strip()
+            image_path = image_dir_path / filename
+
+            if image_path.exists():
+                try:
+                    image = Image.open(image_path)
+                    base64_image = self._encode_image_to_base64(image)
+                    chart_images.append({
+                        'filename': filename,
+                        'base64': base64_image
+                    })
+                    print(f"  [OK] Loaded: {filename}")
+                except Exception as e:
+                    print(f"  [ERROR] Failed to load {filename}: {e}")
+            else:
+                print(f"  [ERROR] Not found: {image_path}")
+
+        return chart_images
+
+    def _encode_image_to_base64(self, image: Image.Image) -> str:
+        """Encode PIL Image to base64 string."""
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+
+        # Save to bytes buffer
+        buffer = io.BytesIO()
+        image.save(buffer, format='PNG')
+        buffer.seek(0)
+
+        # Encode to base64
+        return base64.b64encode(buffer.read()).decode('utf-8')
 
     def extract_batch(self, markdown_list: list[str], json_schema: Dict[str, Any]) -> list[Dict[str, Any]]:
         """

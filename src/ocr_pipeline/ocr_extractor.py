@@ -46,6 +46,8 @@ class OCRExtractor:
         self,
         image_input: Union[str, Path, Image.Image],
         element_type: str = "text",
+        output_dir: str = None,
+        region_index: int = None,
     ) -> str:
         """
         Extract text from an image region with context-aware prompting.
@@ -53,9 +55,11 @@ class OCRExtractor:
         Args:
             image_input: Path to image file or PIL Image object
             element_type: Type of element (table, paragraph, header, handwritten, etc.)
+            output_dir: Optional directory to save chart images (for Option B testing)
+            region_index: Optional region index for naming saved chart images
 
         Returns:
-            Extracted text formatted as Markdown
+            Extracted text formatted as Markdown, or image placeholder for charts
         """
         # Load and encode image
         if isinstance(image_input, (str, Path)):
@@ -65,6 +69,22 @@ class OCRExtractor:
         else:
             raise ValueError("image_input must be a file path or PIL Image object")
 
+        # Option B: For charts, save the image and return a placeholder
+        element_type_lower = element_type.lower()
+        is_chart = any(chart_type in element_type_lower for chart_type in ['chart', 'graph', 'infographic', 'diagram'])
+
+        if is_chart and output_dir and region_index is not None:
+            # Save the chart region image
+            os.makedirs(output_dir, exist_ok=True)
+            chart_filename = f"chart_region_{region_index}.png"
+            chart_path = os.path.join(output_dir, chart_filename)
+            image.save(chart_path)
+            print(f"  [Option B] Saved chart image: {chart_filename}")
+
+            # Return custom placeholder (easy to parse programmatically)
+            return f"[CHART_IMAGE: {chart_filename}]"
+
+        # Normal OCR extraction for non-chart elements or when Option B is not enabled
         # Convert image to base64
         base64_image = self._encode_image_to_base64(image)
 

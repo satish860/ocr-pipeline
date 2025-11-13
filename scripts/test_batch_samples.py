@@ -121,8 +121,8 @@ def test_sample(sample_name: str, extractor: JSONExtractor) -> Dict[str, Any]:
         json_schema = json.loads(schema_path.read_text(encoding="utf-8"))
         ground_truth = json.loads(truth_json_path.read_text(encoding="utf-8"))
 
-        # Extract JSON
-        predicted_json = extractor.extract(markdown, json_schema)
+        # Extract JSON (with multimodal support)
+        predicted_json = extractor.extract(markdown, json_schema, image_dir=str(output_dir))
 
         # Save predicted JSON
         output_json_path = output_dir / f"{sample_name}_extracted.json"
