@@ -165,6 +165,77 @@ Rules:
 
 Return ONLY the extracted text, no additional commentary."""
 
+        elif any(chart_type in element_type_lower for chart_type in ['chart', 'graph', 'infographic', 'diagram']):
+            return """Extract data from this chart/graph/infographic and convert it to a structured table format.
+
+Rules:
+- First, identify the chart type (bar chart, pie chart, donut chart, line graph, infographic map, etc.)
+- Extract the chart title or heading if present
+- Identify all data labels and their corresponding values
+- For charts with axes: extract axis labels and all data points
+- For pie/donut charts: extract each segment label with its value/percentage
+- For infographics/maps: extract each region/element with its associated data
+- For charts with legends: match legend items to their data series
+- Format the extracted data as an HTML table with proper headers and rows
+- Use <table>, <tr>, <td>, <th> tags for structure
+- Ensure each data point is matched with its correct label
+- If multiple data series exist (e.g., multiple bars per category), create appropriate columns
+
+Format:
+1. Start with the chart title as a text line (if present)
+2. Follow with an HTML table containing the extracted data
+3. Include column headers that describe what each column represents
+
+Example for a pie chart showing "Revenue by Segment":
+<table>
+  <tr>
+    <th>Segment</th>
+    <th>Revenue</th>
+  </tr>
+  <tr>
+    <td>Product A</td>
+    <td>$5.2B</td>
+  </tr>
+  <tr>
+    <td>Product B</td>
+    <td>$3.1B</td>
+  </tr>
+</table>
+
+Example for a line graph showing "Quarterly Sales":
+<table>
+  <tr>
+    <th>Quarter</th>
+    <th>Value</th>
+  </tr>
+  <tr>
+    <td>Q1 2024</td>
+    <td>145%</td>
+  </tr>
+  <tr>
+    <td>Q2 2024</td>
+    <td>156%</td>
+  </tr>
+</table>
+
+Example for a horizontal bar chart with multiple columns:
+<table>
+  <tr>
+    <th>Category</th>
+    <th>Option A</th>
+    <th>Option B</th>
+    <th>Option C</th>
+  </tr>
+  <tr>
+    <td>Item 1</td>
+    <td>45%</td>
+    <td>35%</td>
+    <td>20%</td>
+  </tr>
+</table>
+
+Return ONLY the title (if present) and HTML table, no additional commentary or explanation."""
+
         else:  # Default for unknown types
             return """Extract all visible text from this image and format as clean markdown.
 

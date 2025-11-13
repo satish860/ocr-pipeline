@@ -113,37 +113,12 @@ class JSONExtractor:
 {markdown}
 ```
 
-**Instructions:**
+Instructions:
 1. Extract all fields defined in the schema from the markdown content
-2. **IMPORTANT - Cross-Section Analysis**: The markdown contains sections separated by `---`. Related data may be split across multiple sections:
-   - Look for data in adjacent sections that belong together semantically
-   - Combine nearby sections that represent the same entity (e.g., parent categories + detail breakdown)
-   - Sections immediately before/after a chart or table often contain related data
-3. **Hierarchical Relationships**: When you see:
-   - A chart/table with detailed data + separate sections with summary categories → combine into one structure
-   - Parent category labels (e.g., "$9.1 BD Medical") + child detail sections → include both levels
-   - Geographic/segment breakdowns in multiple places → merge into complete list
-4. **Spatial Context Hints**: Pay attention to:
-   - Sections marked as "paragraph" near "chart" regions → likely part of the chart
-   - Numeric values with labels in separate sections → combine with related tables
-   - Text blocks that appear to be category labels → match with corresponding data
-5. If a field is not present in the markdown, use null or omit it based on schema requirements
-6. Ensure all data types match the schema (strings, numbers, arrays, objects)
-7. Preserve the exact structure defined in the schema
-8. Return ONLY valid JSON matching the schema structure (no explanations or markdown formatting)
-
-**Example Pattern:**
-```
-<!-- Region 5: chart -->
-<table with 10 detailed items>
-
-<!-- Region 6: paragraph -->
-$9.1 Parent Category A
-
-<!-- Region 7: paragraph -->
-$4.3 Parent Category B
-```
-→ Extract: Include BOTH the 10 detailed items AND the 2 parent categories in the same array
+2. If a field is not present in the markdown, use null or omit it based on schema requirements
+3. Ensure all data types match the schema (strings, numbers, arrays, objects)
+4. Preserve the exact structure defined in the schema
+5. Return ONLY valid JSON matching the schema structure (no explanations or markdown formatting)
 
 Extract the data now:"""
 
