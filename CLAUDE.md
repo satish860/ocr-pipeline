@@ -3,9 +3,9 @@
 ## Overview
 This project implements a two-stage OCR pipeline using **OpenRouter APIs**:
 1. **QwenVL (via OpenRouter)** - Layout detection and bounding box extraction
-2. **Mistral AI (via OpenRouter)** - High-quality OCR for each detected region
+2. **Gemini Flash 2.5 (via OpenRouter)** - High-quality OCR for each detected region
 
-**Key Architecture Note**: This is a **lightweight API orchestration** service. Both QwenVL and Mistral run via OpenRouter APIs, meaning **no local GPU/heavy compute is required**. The application only handles image processing and API coordination.
+**Key Architecture Note**: This is a **lightweight API orchestration** service. Both QwenVL and Gemini run via OpenRouter APIs, meaning **no local GPU/heavy compute is required**. The application only handles image processing and API coordination.
 
 Output: Formatted Markdown with spatial relationship analysis
 
@@ -13,7 +13,7 @@ Output: Formatted Markdown with spatial relationship analysis
 - Python 3.12
 - UV for dependency management
 - **QwenVL (Qwen2.5-VL-7B-Instruct)** via OpenRouter for layout analysis
-- **Mistral AI (pixtral-12b-2409)** via OpenRouter for OCR
+- **Gemini Flash 2.5 (google/gemini-2.5-flash)** via OpenRouter for OCR
 - FastAPI for REST API
 - Pillow for image processing
 - PyMuPDF for PDF handling
@@ -22,7 +22,7 @@ Output: Formatted Markdown with spatial relationship analysis
 ```
 Client → FastAPI → Image Processing → OpenRouter APIs
                                     ├─ QwenVL (layout)
-                                    └─ Mistral (OCR)
+                                    └─ Gemini (OCR)
 ```
 
 **Compute Requirements**: CPU-only (lightweight). No GPU needed since all ML inference happens via OpenRouter.
@@ -33,7 +33,7 @@ Client → FastAPI → Image Processing → OpenRouter APIs
 - Run code to verify at each step
 
 ## API Setup
-- Using OpenRouter for **both QwenVL and Mistral AI**
+- Using OpenRouter for **both QwenVL and Gemini**
 - Cost-effective and unified API interface
 - Set `OPENROUTER_API_KEY` in `.env` file
 
@@ -80,6 +80,7 @@ Process a single image through the OCR pipeline.
 **Request**:
 - `file`: Image file (PNG, JPG, JPEG)
 - `include_annotated_image`: Boolean (optional, default: true)
+- `extract_charts_as_tables`: Boolean (optional, default: false) - Convert charts/graphs to markdown tables
 
 **Response**:
 ```json
@@ -153,7 +154,7 @@ Each processed page generates:
 
 ## Cost Considerations
 - QwenVL via OpenRouter: ~$0.XX per image
-- Mistral OCR via OpenRouter: ~$0.XX per region
+- Gemini OCR via OpenRouter: ~$0.XX per region
 - No compute costs (CPU-only, lightweight container)
 - Storage: Minimal (2 files per page)
 
@@ -161,3 +162,59 @@ Each processed page generates:
 - **Single image**: ~10-30 seconds (depends on complexity)
 - **Batch PDF**: Sequential processing (can be parallelized)
 - **Bottleneck**: OpenRouter API latency, not compute
+
+## Current Pipeline Flow (Detailed)
+
+```
+Input Image
+    ↓
+┌─────────────────────────────────────┐
+│ ImagePreprocessor (3-stage deskew) │
+│ 1. EXIF auto-rotation              │
+│ 2. OpenCV heuristic rotation       │ ← ISSUE: Fails on complex forms
+│    (detect_orientation method)      │
+│ 3. Fine deskew (small angles)      │
+└──────────────┬──────────────────────┘
+               ↓
+┌──────────────────────────────────────┐
+│ LayoutDetector (Qwen-30B)           │
+│ - Detects elements & bounding boxes │
+└──────────────┬───────────────────────┘
+               ↓
+┌──────────────────────────────────────┐
+│ RegionExtractor                     │
+│ - Crops individual regions          │
+└──────────────┬───────────────────────┘
+               ↓
+┌──────────────────────────────────────┐
+│ OCRExtractor (Gemini Flash 2.5)     │
+│ - Parallel OCR on all regions       │
+└──────────────┬───────────────────────┘
+               ↓
+┌──────────────────────────────────────┐
+│ SpatialAnalyzer                     │
+│ - Analyze spatial relationships     │
+└──────────────┬───────────────────────┘
+               ↓
+         Markdown Output
+```
+
+## Known Issues & Improvements
+
+### Issue: Rotation Detection Fails on Complex Forms
+**Problem**: `input/rotated.png` (Form 1040 rotated 90° clockwise) is not corrected by the current OpenCV heuristic rotation detection.
+
+**Root Cause**: The `detect_orientation()` method in `image_preprocessor.py:24-91` uses OpenCV edge detection + Hough line transform to analyze horizontal vs vertical lines. Complex forms with tables have many lines in both directions, confusing the heuristic.
+
+**Current Behavior**:
+- Input: `input/rotated.png` (form rotated 90° clockwise)
+- Expected: Detect and apply 90° counter-clockwise rotation
+- Actual: No rotation applied → OCR runs on sideways text → garbled output
+
+**Solution in Progress**: Replace OpenCV heuristic with AI-powered rotation detection using Qwen-8B via OpenRouter.
+
+### Planned Enhancement: Document Classification
+Future work will add document type detection (form/check/general) with specialized handling:
+- **Forms**: Extract as structured HTML with field overlay
+- **Checks**: Extract structured JSON with check fields
+- **General** (invoices, documents): Continue using markdown (current behavior)
