@@ -128,6 +128,8 @@ Rules:
 - Include header row if present
 - Keep all data exactly as shown
 - If cells are empty, use a dash (-)
+- IMPORTANT: If cells are merged/span multiple rows, repeat the value for each row in the markdown output
+- For vertically merged cells, duplicate the cell value for every row it spans
 
 Return ONLY the markdown table, no additional text or explanation."""
 
