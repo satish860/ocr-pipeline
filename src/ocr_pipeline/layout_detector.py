@@ -42,8 +42,8 @@ class LayoutDetector:
             api_key=self.api_key,
         )
 
-        # Use Qwen3-VL-8B-Instruct for best balance of cost and performance
-        self.model = "qwen/qwen3-vl-8b-instruct"
+        # Use Qwen3-VL-30B-A3B-Thinking for better instruction following and complex layout handling
+        self.model = "qwen/qwen3-vl-30b-a3b-thinking"
 
     def detect_layout(
         self,
@@ -81,30 +81,49 @@ class LayoutDetector:
         # Generate appropriate prompt
         if output_format == "html":
             prompt = """Parse this document to QwenVL HTML format with bounding boxes.
-Detect ALL content including:
+Detect ALL layout elements including:
 - Printed text (headers, paragraphs, tables)
 - Handwritten text and annotations
 - Forms with filled-in handwritten entries
+
+IMPORTANT: Focus ONLY on detecting element types and boundaries. Do NOT attempt text extraction.
 Include data-bbox attributes for every element."""
         else:  # json
-            prompt = """Analyze this document and detect ALL layout elements including both printed and handwritten content.
+            prompt = """Analyze this document and detect ALL layout elements including text, visual elements, and handwritten content.
 
-IMPORTANT - Distinguish between printed and handwritten text:
+IMPORTANT - Your task is to detect component TYPES and BOUNDARIES only. Do NOT extract text content.
+
+Distinguish between different content types:
 - PRINTED text: Uniform font, clean edges, machine-printed (use types: header, paragraph, table)
 - HANDWRITTEN text: Irregular, pen/pencil strokes, human-written annotations (use type: handwritten)
+- SIGNATURES: Cursive/scrawled handwritten signatures, typically at bottom of documents/checks (use type: signature)
+- VISUAL elements: Charts, graphs, diagrams, infographics (use specific types: chart, graph, diagram, infographic, or figure)
 
 Return a JSON array with bounding boxes for:
 - Headers (h1, h2, h3) - printed headings
 - Paragraphs - printed body text
 - Tables - printed table structures with cells
-- Handwritten - ONLY hand-written annotations, notes, or filled-in form entries that are clearly written by pen/pencil
-- Images/figures
+- Handwritten - ONLY hand-written annotations, notes, or filled-in form entries (NOT signatures)
+- Signature - Cursive signatures at bottom of documents, checks, contracts (use type: "signature")
+- Check/Cheque - Entire bank check/cheque region including all fields (use type: "check" or "cheque")
+- Charts/Graphs - bar charts, pie charts, donut charts, line graphs (use type: "chart" or "graph")
+- Diagrams - flowcharts, organizational diagrams, technical diagrams (use type: "diagram")
+- Infographics - visual data representations, maps with data overlays (use type: "infographic")
+- Images/figures - photos, illustrations, decorative images (use type: "image" or "figure")
 - Lists
 - Any other text blocks
 
+For visual elements, try to be specific:
+- If it contains numeric data and visualizations → "chart" or "graph"
+- If it's a structured visual diagram → "diagram"
+- If it combines text, data, and visuals → "infographic"
+- Otherwise → "figure" or "image"
+
 Only mark something as "handwritten" if it is clearly written by hand with pen/pencil, not printed.
 
-Format: [{"type": "element_type", "bbox": [x1, y1, x2, y2], "content": "text preview"}]
+Focus ONLY on detecting accurate bounding boxes and element types. Do NOT attempt text extraction.
+
+Format: [{"type": "element_type", "bbox": [x1, y1, x2, y2]}]
 Return ONLY valid JSON, no additional text."""
 
         # Call OpenRouter API
@@ -145,6 +164,113 @@ Return ONLY valid JSON, no additional text."""
 
         except Exception as e:
             raise RuntimeError(f"Error calling OpenRouter API: {e}")
+
+    def detect_layout_multipass(self, image_input: Union[str, Path, Image.Image]) -> dict:
+        """
+        Two-pass layout detection for complex images with multiple forms/checks.
+
+        Pass 1: Detect high-level regions (forms, checks, documents)
+        Pass 2: Detect detailed elements within each region
+
+        Args:
+            image_input: Path to image file or PIL Image object
+
+        Returns:
+            Combined layout result in same format as detect_layout()
+        """
+        # Load image
+        if isinstance(image_input, (str, Path)):
+            image = Image.open(image_input)
+        elif isinstance(image_input, Image.Image):
+            image = image_input
+        else:
+            raise ValueError("image_input must be a file path or PIL Image object")
+
+        original_width, original_height = image.size
+        base64_image = self._encode_image_to_base64(image)
+
+        # Pass 1: Detect high-level regions only
+        print(f"      [Pass 1/2] Detecting high-level regions (forms/checks)...")
+        pass1_prompt = """Detect only high-level document regions in this image.
+
+IMPORTANT: Only detect large regions like forms, checks, or document sections. Do NOT detect individual text fields or extract text content.
+
+Return a JSON array with bounding boxes for:
+- Check - Individual bank checks or cheques
+- Form - Forms, documents, or structured layouts
+- Document - Separate document pages or sections
+
+For each region, provide a large bounding box that encompasses the entire form/check/document.
+Focus ONLY on detecting region types and boundaries. Do NOT attempt text extraction.
+
+Format: [{"type": "check" or "form" or "document", "bbox": [x1, y1, x2, y2]}]
+Return ONLY valid JSON, no additional text."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                            },
+                            {
+                                "type": "text",
+                                "text": pass1_prompt
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            raw_output = response.choices[0].message.content
+            high_level_regions = self._parse_json_output(raw_output, original_width, original_height)
+
+            print(f"      Detected {len(high_level_regions['elements'])} high-level regions")
+
+        except Exception as e:
+            raise RuntimeError(f"Error in Pass 1 detection: {e}")
+
+        # Pass 2: Detect detailed elements within each region
+        print(f"      [Pass 2/2] Detecting detailed elements in each region...")
+        all_elements = []
+
+        for idx, region in enumerate(high_level_regions['elements'], 1):
+            x1, y1, x2, y2 = region['bbox']
+
+            # Crop region
+            region_image = image.crop((x1, y1, x2, y2))
+            region_width, region_height = region_image.size
+
+            print(f"            Processing region {idx}/{len(high_level_regions['elements'])}...")
+
+            try:
+                # Detect detailed elements in this region
+                region_layout = self.detect_layout(region_image, output_format="json")
+
+                # Adjust coordinates from relative to absolute
+                for element in region_layout['elements']:
+                    element['bbox'] = [
+                        element['bbox'][0] + x1,
+                        element['bbox'][1] + y1,
+                        element['bbox'][2] + x1,
+                        element['bbox'][3] + y1
+                    ]
+                    all_elements.append(element)
+
+            except Exception as e:
+                print(f"            [WARNING] Failed to process region {idx}: {e}")
+                continue
+
+        print(f"      Total elements detected across all regions: {len(all_elements)}")
+
+        return {
+            'elements': all_elements,
+            'image_size': {'width': original_width, 'height': original_height}
+        }
 
     def _encode_image_to_base64(self, image: Image.Image) -> str:
         """Encode PIL Image to base64 string."""
@@ -207,17 +333,15 @@ Return ONLY valid JSON, no additional text."""
                 x2 = int((coords[2] / 1000.0) * img_width)
                 y2 = int((coords[3] / 1000.0) * img_height)
 
-                # Get element type and content
+                # Get element type
                 element_type = elem.name
                 element_class = elem.get('class', [])
-                content = elem.get_text(strip=True)
 
                 elements.append({
                     'type': element_type,
                     'class': element_class,
                     'bbox': [x1, y1, x2, y2],
-                    'bbox_normalized': coords,  # Keep original for reference
-                    'content': content[:200] if content else ""  # First 200 chars
+                    'bbox_normalized': coords  # Keep original for reference
                 })
 
             except (ValueError, IndexError) as e:
@@ -286,8 +410,7 @@ Return ONLY valid JSON, no additional text."""
                 elements.append({
                     'type': item.get('type', item.get('label', 'unknown')),
                     'bbox': [x1, y1, x2, y2],
-                    'bbox_normalized': bbox_normalized,
-                    'content': item.get('content', item.get('text', ''))[:200]
+                    'bbox_normalized': bbox_normalized
                 })
 
             return elements
