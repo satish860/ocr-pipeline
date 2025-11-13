@@ -33,7 +33,6 @@ tests/
 
 # Documentation
 docs/
-*.md
 
 # Environment files
 .env
