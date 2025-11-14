@@ -335,3 +335,237 @@ Return ONLY valid JSON, no additional text."""
 
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse JSON output: {e}\nOutput: {json_output[:500]}")
+
+    def _analyze_gaps(self, elements: List[Dict], gap_threshold: int = 100) -> List[tuple]:
+        """
+        Analyze vertical gaps between detected elements.
+
+        Args:
+            elements: List of detected elements with bboxes
+            gap_threshold: Minimum gap size (in pixels) to flag as suspicious
+
+        Returns:
+            List of gap regions: [(y_start, y_end), ...]
+        """
+        if len(elements) < 2:
+            return []
+
+        # Sort elements by vertical position (y1)
+        sorted_elements = sorted(elements, key=lambda e: e['bbox'][1])
+
+        gaps = []
+        for i in range(len(sorted_elements) - 1):
+            current_y2 = sorted_elements[i]['bbox'][3]  # Bottom of current element
+            next_y1 = sorted_elements[i + 1]['bbox'][1]  # Top of next element
+            gap_size = next_y1 - current_y2
+
+            if gap_size > gap_threshold:
+                gaps.append((current_y2, next_y1, gap_size))
+
+        return gaps
+
+    def _calculate_iou(self, bbox1: List[int], bbox2: List[int]) -> float:
+        """
+        Calculate Intersection over Union (IoU) between two bounding boxes.
+
+        Args:
+            bbox1: [x1, y1, x2, y2]
+            bbox2: [x1, y1, x2, y2]
+
+        Returns:
+            IoU score (0.0 to 1.0)
+        """
+        x1_inter = max(bbox1[0], bbox2[0])
+        y1_inter = max(bbox1[1], bbox2[1])
+        x2_inter = min(bbox1[2], bbox2[2])
+        y2_inter = min(bbox1[3], bbox2[3])
+
+        if x2_inter < x1_inter or y2_inter < y1_inter:
+            return 0.0
+
+        intersection = (x2_inter - x1_inter) * (y2_inter - y1_inter)
+        area1 = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+        area2 = (bbox2[2] - bbox2[0]) * (bbox2[3] - bbox2[1])
+        union = area1 + area2 - intersection
+
+        return intersection / union if union > 0 else 0.0
+
+    def _merge_elements(self, initial_elements: List[Dict], gap_elements: List[Dict], iou_threshold: float = 0.5) -> List[Dict]:
+        """
+        Merge elements from initial detection and gap detection, removing duplicates.
+
+        Args:
+            initial_elements: Elements from first detection pass
+            gap_elements: Elements from gap-focused detection
+            iou_threshold: IoU threshold for considering elements as duplicates
+
+        Returns:
+            Merged list of unique elements
+        """
+        merged = initial_elements.copy()
+
+        for gap_elem in gap_elements:
+            is_duplicate = False
+            for init_elem in initial_elements:
+                iou = self._calculate_iou(gap_elem['bbox'], init_elem['bbox'])
+                if iou > iou_threshold:
+                    is_duplicate = True
+                    break
+
+            if not is_duplicate:
+                merged.append(gap_elem)
+
+        # Sort by vertical position
+        merged.sort(key=lambda e: e['bbox'][1])
+
+        return merged
+
+    def _detect_in_gaps(
+        self,
+        image: Image.Image,
+        gaps: List[tuple],
+        existing_bboxes: List[List[int]],
+        img_width: int,
+        img_height: int
+    ) -> List[Dict]:
+        """
+        Perform targeted detection in identified gaps using self-critique approach.
+
+        Args:
+            image: PIL Image object
+            gaps: List of gap regions [(y_start, y_end, gap_size), ...]
+            existing_bboxes: Already detected bounding boxes
+            img_width: Image width
+            img_height: Image height
+
+        Returns:
+            List of additional elements found in gaps
+        """
+        if not gaps:
+            return []
+
+        # Convert image to base64
+        base64_image = self._encode_image_to_base64(image)
+
+        # Prepare gap information for prompt
+        gap_info = "\n".join([f"- Gap at Y coordinates {g[0]}-{g[1]} (size: {g[2]}px)" for g in gaps])
+
+        # Self-critique prompt
+        prompt = f"""I previously detected {len(existing_bboxes)} elements in this image.
+
+However, I found suspicious VERTICAL GAPS between elements:
+{gap_info}
+
+Please review the image and focus ONLY on these gap regions. Detect any elements (text, labels, signatures, etc.) that are located within these gaps.
+
+IMPORTANT:
+- Only return elements within the gap Y-coordinate ranges
+- Focus on small elements like labels, field names, or signatures that may have been missed
+- Return empty array [] if no elements are in the gaps
+
+Format: [{{"type": "element_type", "bbox": [x1, y1, x2, y2]}}]
+Return ONLY valid JSON, no additional text."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                            },
+                            {
+                                "type": "text",
+                                "text": prompt
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            raw_output = response.choices[0].message.content
+            return self._parse_json_output(raw_output, img_width, img_height)
+
+        except Exception as e:
+            print(f"      [WARNING] Gap detection failed: {e}")
+            return []
+
+    def detect_layout_with_refinement(
+        self,
+        image_input: Union[str, Path, Image.Image],
+        gap_threshold: int = 100
+    ) -> Dict:
+        """
+        Detect layout with gap analysis and self-critique refinement.
+
+        This method performs a two-step process:
+        1. Initial layout detection
+        2. Gap analysis + targeted re-detection in suspicious gaps
+
+        Args:
+            image_input: Path to image file or PIL Image object
+            gap_threshold: Minimum gap size (pixels) to trigger re-detection
+
+        Returns:
+            Dictionary containing:
+            - raw_output: Raw model response from initial detection
+            - elements: Merged list of detected elements (initial + gap-filled)
+            - image_dimensions: Original image dimensions
+            - refinement_stats: Statistics about the refinement process
+        """
+        # Load image
+        if isinstance(image_input, (str, Path)):
+            image = Image.open(image_input)
+        elif isinstance(image_input, Image.Image):
+            image = image_input
+        else:
+            raise ValueError("image_input must be a file path or PIL Image object")
+
+        original_width, original_height = image.size
+
+        print("      [PASS 1/2] Initial layout detection...")
+        # Step 1: Initial detection
+        initial_result = self.detect_layout(image_input)
+        initial_elements = initial_result['elements']
+
+        print(f"      Initial detection: {len(initial_elements)} elements")
+
+        # Step 2: Analyze gaps
+        print("      [PASS 2/2] Analyzing gaps...")
+        gaps = self._analyze_gaps(initial_elements, gap_threshold)
+
+        if not gaps:
+            print("      No significant gaps found. Skipping refinement.")
+            return initial_result
+
+        print(f"      Found {len(gaps)} gaps: {gaps}")
+
+        # Step 3: Detect in gaps
+        print(f"      Re-detecting in {len(gaps)} gap regions...")
+        existing_bboxes = [elem['bbox'] for elem in initial_elements]
+        gap_elements = self._detect_in_gaps(
+            image, gaps, existing_bboxes, original_width, original_height
+        )
+
+        print(f"      Gap detection found {len(gap_elements)} additional elements")
+
+        # Step 4: Merge results
+        merged_elements = self._merge_elements(initial_elements, gap_elements)
+
+        print(f"      Total after refinement: {len(merged_elements)} elements")
+
+        return {
+            "raw_output": initial_result['raw_output'],
+            "elements": merged_elements,
+            "image_dimensions": {"width": original_width, "height": original_height},
+            "refinement_stats": {
+                "initial_count": len(initial_elements),
+                "gaps_found": len(gaps),
+                "gap_elements_found": len(gap_elements),
+                "final_count": len(merged_elements),
+                "elements_added": len(merged_elements) - len(initial_elements)
+            }
+        }

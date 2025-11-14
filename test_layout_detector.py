@@ -110,6 +110,11 @@ def main():
         default="output",
         help="Output directory for results"
     )
+    parser.add_argument(
+        "--refine",
+        action="store_true",
+        help="Enable gap analysis and self-critique refinement"
+    )
 
     args = parser.parse_args()
 
@@ -145,16 +150,33 @@ def main():
 
         try:
             # Detect layout
-            print("[DETECTING] Analyzing layout elements...")
+            if args.refine:
+                print("[DETECTING] Analyzing layout with gap refinement...")
+            else:
+                print("[DETECTING] Analyzing layout elements...")
             start_time = datetime.now()
 
-            result = detector.detect_layout(image_path)
+            if args.refine:
+                result = detector.detect_layout_with_refinement(image_path)
+            else:
+                result = detector.detect_layout(image_path)
 
             elapsed = (datetime.now() - start_time).total_seconds()
 
             # Display summary
             elements = result['elements']
             print(f"[SUCCESS] Detection complete in {elapsed:.2f}s")
+
+            # Show refinement stats if available
+            if 'refinement_stats' in result:
+                stats = result['refinement_stats']
+                print(f"\n[REFINEMENT] Stats:")
+                print(f"   - Initial detection: {stats['initial_count']} elements")
+                print(f"   - Gaps found: {stats['gaps_found']}")
+                print(f"   - Gap elements found: {stats['gap_elements_found']}")
+                print(f"   - Final count: {stats['final_count']} elements")
+                print(f"   - Elements added: {stats['elements_added']}")
+
             print(f"\n[SUMMARY] Detected {len(elements)} elements:")
 
             # Group by type
@@ -188,6 +210,10 @@ def main():
                 "elements_by_type": type_counts,
                 "elements": elements
             }
+
+            # Add refinement stats if available
+            if 'refinement_stats' in result:
+                output_data['refinement_stats'] = result['refinement_stats']
 
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
