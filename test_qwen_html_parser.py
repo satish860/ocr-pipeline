@@ -64,19 +64,19 @@ def smart_resize(height: int, width: int, min_pixels: int = 512*32*32,
     return new_height, new_width
 
 
-def call_qwen_html_api(image_path: str, prompt: str = "qwenvl html",
-                       min_pixels: int = 512*32*32, max_pixels: int = 2048*32*32) -> str:
+def call_qwen_markdown_api(image_path: str, prompt: str = "qwenvl markdown",
+                           min_pixels: int = 512*32*32, max_pixels: int = 2048*32*32) -> str:
     """
-    Call OpenRouter API with Qwen3-VL model to get HTML output.
+    Call OpenRouter API with Qwen3-VL model to get Markdown output.
 
     Args:
         image_path: Path to the image file
-        prompt: Prompt to send (default: "qwenvl html")
+        prompt: Prompt to send (default: "qwenvl markdown")
         min_pixels: Minimum pixels for image resize
         max_pixels: Maximum pixels for image resize
 
     Returns:
-        HTML response string with data-bbox attributes
+        Markdown response string with coordinate annotations
     """
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
@@ -167,151 +167,6 @@ def convert_bbox_to_pixels(bbox: tuple[int, int, int, int],
     return px1, py1, px2, py2
 
 
-def latex_table_to_html(latex_table: str) -> str:
-    """
-    Convert LaTeX table format to HTML table.
-
-    Args:
-        latex_table: LaTeX table string (from \\begin{tabular} to \\end{tabular})
-
-    Returns:
-        HTML table string
-    """
-    # Extract table content between \begin{tabular} and \end{tabular}
-    start = latex_table.find(r'\begin{tabular}')
-    end = latex_table.find(r'\end{tabular}')
-
-    if start == -1 or end == -1:
-        return "<p>Invalid LaTeX table format</p>"
-
-    # Get content after the column specification
-    content_start = latex_table.find('}', start) + 1
-    table_content = latex_table[content_start:end].strip()
-
-    # Split by \hline to get rows
-    rows = [row.strip() for row in table_content.split(r'\hline') if row.strip()]
-
-    # Filter out column specification rows (contain only {|...|} pattern)
-    rows = [row for row in rows if not (row.startswith('{') and row.endswith('}') and '&' not in row)]
-
-    html_parts = ['<table border="1" style="border-collapse: collapse; width: 100%;">']
-
-    is_first_row = True
-    for row in rows:
-        if not row or row == r'\\':
-            continue
-
-        # Remove trailing \\
-        row = row.rstrip('\\').strip()
-
-        # Split by & to get cells
-        cells = [cell.strip() for cell in row.split('&')]
-
-        # Determine if this is a header row (contains \textbf)
-        is_header = is_first_row or any(r'\textbf' in cell for cell in cells)
-
-        if is_header:
-            html_parts.append('  <thead><tr>')
-            tag = 'th'
-        else:
-            if is_first_row:
-                html_parts.append('  <tbody>')
-            html_parts.append('  <tr>')
-            tag = 'td'
-
-        for cell in cells:
-            # Clean LaTeX formatting
-            cleaned_cell = clean_latex_formatting(cell)
-            html_parts.append(f'    <{tag}>{cleaned_cell}</{tag}>')
-
-        if is_header:
-            html_parts.append('  </tr></thead>')
-            if is_first_row:
-                html_parts.append('  <tbody>')
-        else:
-            html_parts.append('  </tr>')
-
-        is_first_row = False
-
-    html_parts.append('  </tbody>')
-    html_parts.append('</table>')
-
-    return '\n'.join(html_parts)
-
-
-def clean_latex_formatting(text: str) -> str:
-    """
-    Clean LaTeX formatting from text.
-
-    Args:
-        text: Text with LaTeX formatting
-
-    Returns:
-        Plain text or HTML
-    """
-    # Remove \textbf{} and keep content
-    text = re.sub(r'\\textbf\{([^}]+)\}', r'<strong>\1</strong>', text)
-
-    # Convert superscripts $^{...}$
-    text = re.sub(r'\$\^?\{([^}]+)\}\$', r'<sup>\1</sup>', text)
-
-    # Handle escaped characters
-    text = text.replace(r'\&', '&amp;')
-    text = text.replace(r'\_', '_')
-    text = text.replace(r'\%', '%')
-    text = text.replace(r'\$', '$')
-
-    # Remove other LaTeX commands (basic)
-    text = re.sub(r'\\[a-zA-Z]+', '', text)
-
-    return text.strip()
-
-
-def markdown_table_to_html(markdown_table: str) -> str:
-    """
-    Convert standard Markdown table to HTML.
-
-    Args:
-        markdown_table: Markdown table string (| col1 | col2 |)
-
-    Returns:
-        HTML table string
-    """
-    lines = [line.strip() for line in markdown_table.strip().split('\n') if line.strip()]
-
-    if len(lines) < 2:
-        return "<p>Invalid markdown table</p>"
-
-    html_parts = ['<table border="1" style="border-collapse: collapse; width: 100%;">']
-
-    for i, line in enumerate(lines):
-        # Skip separator line (|---|---|)
-        if all(c in '|-: ' for c in line):
-            continue
-
-        # Split by | and remove empty first/last elements
-        cells = [cell.strip() for cell in line.split('|')]
-        cells = [c for c in cells if c]  # Remove empty strings
-
-        # First line is header
-        if i == 0:
-            html_parts.append('  <thead><tr>')
-            for cell in cells:
-                html_parts.append(f'    <th>{cell}</th>')
-            html_parts.append('  </tr></thead>')
-            html_parts.append('  <tbody>')
-        else:
-            html_parts.append('  <tr>')
-            for cell in cells:
-                html_parts.append(f'    <td>{cell}</td>')
-            html_parts.append('  </tr>')
-
-    html_parts.append('  </tbody>')
-    html_parts.append('</table>')
-
-    return '\n'.join(html_parts)
-
-
 def clean_markdown_wrapper(content: str) -> str:
     """
     Remove code fence wrappers from markdown content.
@@ -325,65 +180,13 @@ def clean_markdown_wrapper(content: str) -> str:
     Returns:
         Clean markdown content
     """
-    # Remove opening ```markdown or ```html
+    # Remove opening ```markdown code fence
     content = re.sub(r'^```(?:markdown|html)\s*\n', '', content.strip())
 
     # Remove closing ```
     content = re.sub(r'\n```\s*$', '', content)
 
     return content.strip()
-
-
-def convert_markdown_tables_to_html(markdown_content: str) -> str:
-    """
-    Automatically convert all tables (LaTeX and Markdown) to HTML within markdown.
-
-    Args:
-        markdown_content: Markdown string with LaTeX/Markdown tables
-
-    Returns:
-        Modified markdown with HTML tables
-    """
-    modified_content = markdown_content
-
-    # 1. Convert LaTeX tables to HTML
-    latex_tables = re.findall(r'\\begin\{tabular\}.*?\\end\{tabular\}', markdown_content, re.DOTALL)
-
-    for latex_table in latex_tables:
-        html_table = latex_table_to_html(latex_table)
-        modified_content = modified_content.replace(latex_table, html_table)
-
-    # 2. Convert Markdown tables to HTML
-    # Extract markdown tables with their position
-    lines = modified_content.split('\n')
-    result_lines = []
-    current_table_lines = []
-    in_table = False
-
-    for line in lines:
-        stripped = line.strip()
-
-        if stripped.startswith('|') and '|' in stripped[1:]:
-            current_table_lines.append(line)
-            in_table = True
-        else:
-            if in_table and current_table_lines:
-                # End of table - convert it
-                md_table = '\n'.join(current_table_lines)
-                html_table = markdown_table_to_html(md_table)
-                result_lines.append(html_table)
-                current_table_lines = []
-                in_table = False
-
-            result_lines.append(line)
-
-    # Handle last table if file ends with table
-    if current_table_lines:
-        md_table = '\n'.join(current_table_lines)
-        html_table = markdown_table_to_html(md_table)
-        result_lines.append(html_table)
-
-    return '\n'.join(result_lines)
 
 
 def parse_markdown_bboxes(markdown_content: str) -> list[dict]:
@@ -607,7 +410,7 @@ def main(image_path: str = None):
         print("=" * 80)
 
         print("\nCalling API with 'qwenvl markdown' prompt...")
-        markdown_output_raw = call_qwen_html_api(test_image, prompt="qwenvl markdown")
+        markdown_output_raw = call_qwen_markdown_api(test_image, prompt="qwenvl markdown")
 
         print("\n" + "-" * 80)
         print("Markdown Response Preview:")
@@ -634,31 +437,6 @@ def main(image_path: str = None):
         output_md.write_text(markdown_output, encoding='utf-8')
         print(f"  Saved clean markdown to: {output_md}")
 
-        # Auto-convert tables in markdown to HTML
-        print("\n" + "-" * 80)
-        print("Auto-Converting Tables in Markdown:")
-        print("-" * 80)
-
-        markdown_with_html_tables = convert_markdown_tables_to_html(markdown_output)
-
-        # Count how many tables were converted
-        html_table_count = markdown_with_html_tables.count('<table')
-        print(f"  Converted {html_table_count} table(s) to HTML within markdown")
-
-        # Save converted markdown
-        output_md_converted = Path("output") / f"{input_name}_qwen_markdown_with_html_tables.md"
-        output_md_converted.write_text(markdown_with_html_tables, encoding='utf-8')
-        print(f"  Saved converted markdown to: {output_md_converted}")
-
-        # Show preview
-        if html_table_count > 0:
-            # Find first table in converted output
-            table_start = markdown_with_html_tables.find('<table')
-            table_end = markdown_with_html_tables.find('</table>', table_start) + 8
-            if table_start != -1:
-                print(f"\n  Preview of first converted table:")
-                print(f"  {markdown_with_html_tables[table_start:table_end][:300]}...")
-
         # Parse Markdown coordinate annotations (no visualization)
         print("\n" + "-" * 80)
         print("Parsing Markdown Coordinate Annotations:")
@@ -670,95 +448,6 @@ def main(image_path: str = None):
         if not elements:
             print("  No coordinate annotations found in markdown!")
 
-        # Convert tables to HTML (both LaTeX and Markdown formats)
-        print("\n" + "-" * 80)
-        print("Converting Tables to HTML:")
-        print("-" * 80)
-
-        # Extract LaTeX tables
-        latex_tables = re.findall(r'\\begin\{tabular\}.*?\\end\{tabular\}', markdown_output, re.DOTALL)
-
-        # Extract Markdown tables (lines starting with |)
-        markdown_tables = []
-        lines = markdown_output.split('\n')
-        current_table = []
-        in_table = False
-
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith('|') and '|' in stripped[1:]:
-                current_table.append(line)
-                in_table = True
-            elif in_table and current_table:
-                # End of table
-                markdown_tables.append('\n'.join(current_table))
-                current_table = []
-                in_table = False
-
-        # Catch last table if file ends with table
-        if current_table:
-            markdown_tables.append('\n'.join(current_table))
-
-        total_tables = len(latex_tables) + len(markdown_tables)
-
-        if total_tables > 0:
-            print(f"\nFound {total_tables} table(s):")
-            print(f"  - LaTeX tables: {len(latex_tables)}")
-            print(f"  - Markdown tables: {len(markdown_tables)}")
-
-            html_tables_output = ['<html>\n<head>\n<style>']
-            html_tables_output.append('table { border-collapse: collapse; width: 100%; margin: 20px 0; }')
-            html_tables_output.append('th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }')
-            html_tables_output.append('th { background-color: #4CAF50; color: white; font-weight: bold; }')
-            html_tables_output.append('tr:nth-child(even) { background-color: #f2f2f2; }')
-            html_tables_output.append('</style>\n</head>\n<body>')
-            html_tables_output.append('<h1>Converted Tables from QwenVL Markdown</h1>')
-
-            table_num = 1
-
-            # Convert LaTeX tables
-            for latex_table in latex_tables:
-                print(f"\n  Table {table_num} (LaTeX):")
-                print(f"    Source length: {len(latex_table)} chars")
-
-                html_table = latex_table_to_html(latex_table)
-                print(f"    HTML length: {len(html_table)} chars")
-
-                html_tables_output.append(f'<h2>Table {table_num} (LaTeX Format)</h2>')
-                html_tables_output.append(html_table)
-                table_num += 1
-
-            # Convert Markdown tables
-            for md_table in markdown_tables:
-                print(f"\n  Table {table_num} (Markdown):")
-                print(f"    Source length: {len(md_table)} chars")
-
-                html_table = markdown_table_to_html(md_table)
-                print(f"    HTML length: {len(html_table)} chars")
-
-                html_tables_output.append(f'<h2>Table {table_num} (Markdown Format)</h2>')
-                html_tables_output.append(html_table)
-                table_num += 1
-
-            html_tables_output.append('</body>\n</html>')
-
-            # Save HTML tables
-            output_html_tables = Path("output") / f"{input_name}_qwen_tables_converted.html"
-            output_html_tables.write_text('\n'.join(html_tables_output), encoding='utf-8')
-            print(f"\n  Converted tables saved to: {output_html_tables}")
-
-            # Show preview of first table
-            if latex_tables:
-                print("\n  First table preview:")
-                first_html = latex_table_to_html(latex_tables[0])
-                print(f"  {first_html[:500]}...")
-            elif markdown_tables:
-                print("\n  First table preview:")
-                first_html = markdown_table_to_html(markdown_tables[0])
-                print(f"  {first_html[:500]}...")
-        else:
-            print("\n  No tables found in markdown output")
-
         # Summary
         print("\n" + "=" * 80)
         print("TEST COMPLETE!")
@@ -766,9 +455,6 @@ def main(image_path: str = None):
         print("\nFormat: 'qwenvl markdown' with table/image coordinates")
         print("\nOutput Files:")
         print(f"  - {output_md} (markdown with coordinates)")
-        print(f"  - {output_md_converted} (auto-converted tables)")
-        if total_tables > 0:
-            print(f"  - {output_html_tables} (standalone tables)")
 
     except Exception as e:
         print(f"\nError: {e}")
