@@ -8,7 +8,80 @@ import argparse
 import json
 from pathlib import Path
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
 from src.ocr_pipeline.layout_detector import LayoutDetector
+
+
+def create_annotated_image(image_path, elements, output_path):
+    """
+    Create an annotated image with bounding boxes drawn on it.
+
+    Args:
+        image_path: Path to original image
+        elements: List of detected elements with bboxes
+        output_path: Path to save annotated image
+    """
+    # Load image
+    image = Image.open(image_path)
+    draw = ImageDraw.Draw(image)
+
+    # Define colors for different element types
+    color_map = {
+        'header': '#FF0000',      # Red
+        'paragraph': '#0000FF',   # Blue
+        'table': '#00FF00',       # Green
+        'handwritten': '#FF00FF', # Magenta
+        'signature': '#FFA500',   # Orange
+        'chart': '#00FFFF',       # Cyan
+        'graph': '#00FFFF',       # Cyan
+        'diagram': '#FFFF00',     # Yellow
+        'infographic': '#FF1493', # Deep Pink
+        'figure': '#8B4513',      # Brown
+        'image': '#8B4513',       # Brown
+        'check': '#FF4500',       # Orange Red
+        'cheque': '#FF4500',      # Orange Red
+        'list': '#9370DB',        # Purple
+        'printed': '#4169E1',     # Royal Blue
+    }
+
+    default_color = '#808080'  # Gray for unknown types
+
+    # Draw bounding boxes
+    for idx, elem in enumerate(elements, 1):
+        bbox = elem['bbox']
+        elem_type = elem['type']
+        color = color_map.get(elem_type, default_color)
+
+        # Draw rectangle
+        draw.rectangle(
+            [(bbox[0], bbox[1]), (bbox[2], bbox[3])],
+            outline=color,
+            width=3
+        )
+
+        # Draw label with element number and type
+        label = f"{idx}. {elem_type}"
+
+        # Try to use a default font, fall back to default if not available
+        try:
+            font = ImageFont.truetype("arial.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+
+        # Get text bounding box for background
+        try:
+            text_bbox = draw.textbbox((bbox[0], bbox[1] - 25), label, font=font)
+            # Draw background for text
+            draw.rectangle(text_bbox, fill=color)
+            # Draw text
+            draw.text((bbox[0], bbox[1] - 25), label, fill='white', font=font)
+        except:
+            # Fallback if textbbox not available (older PIL versions)
+            draw.text((bbox[0], bbox[1] - 25), label, fill=color, font=font)
+
+    # Save annotated image
+    image.save(output_path)
+    return output_path
 
 
 def main():
@@ -120,6 +193,12 @@ def main():
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
 
             print(f"\n[SAVED] Results saved to: {output_file}")
+
+            # Create annotated image with bounding boxes
+            print("[VISUALIZING] Creating annotated image with bounding boxes...")
+            annotated_path = output_dir / f"{image_path.stem}_annotated.png"
+            create_annotated_image(image_path, elements, annotated_path)
+            print(f"[SAVED] Annotated image saved to: {annotated_path}")
 
         except Exception as e:
             print(f"[ERROR] Error processing {image_path.name}: {e}")
