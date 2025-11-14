@@ -72,68 +72,22 @@ class LayoutDetector:
         # Convert image to base64
         base64_image = self._encode_image_to_base64(image)
 
-        # Generate JSON detection prompt - Detect BOTH structure AND content
-        prompt = """Analyze this document and detect ALL layout elements - BOTH structural containers AND content inside them.
+        # SIMPLIFIED PROMPT: Segment-based detection with accuracy focus
+        prompt = """Find all content regions in this document.
 
-CRITICAL: Detect BOTH structure AND content as SEPARATE elements:
-- A signature box (container) AND the text/signature inside it
-- A field label (e.g., "Signature:") AND the field box AND the content
-- These are NOT mutually exclusive - return ALL of them
+Your task: Detect precise bounding boxes for each distinct content block.
 
-IMPORTANT - Your task is to detect component TYPES and BOUNDARIES only. Do NOT extract text content.
+CRITICAL - Bounding box accuracy rules:
+- Draw tight boundaries around each content region
+- x1, y1 = top-left corner (start of content)
+- x2, y2 = bottom-right corner (end of content)
+- Be pixel-precise - ensure boxes align exactly with content edges
+- Include all content within the region, but avoid excess whitespace
 
-=== STRUCTURAL CONTAINERS (boxes, fields, regions) ===
-- signature_box - Rectangular container/field for signatures (often has underline or border)
-- box / field - Input fields, rectangular containers, form fields
-- checkbox - Small boxes for checkmarks
-- table - Table structures with cells and borders
-- line / separator - Lines, underlines, borders, dividers
+IMPORTANT: All elements must have type "segment" - do not classify the content type.
 
-=== TEXT CONTENT (for OCR to extract later) ===
-- header - Document titles, section headings, field labels
-- paragraph - Body text, descriptions, instructions
-- label - Short field identifiers (e.g., "Name:", "Date:", "Signature:")
-- handwritten - Hand-written annotations, notes (irregular pen/pencil)
-- signature - Actual handwritten signature marks (cursive/scrawled)
-
-=== VISUAL ELEMENTS ===
-- chart / graph - Bar charts, pie charts, line graphs, data visualizations
-- diagram - Flowcharts, organizational diagrams, technical diagrams
-- infographic - Visual data representations, maps with data overlays
-- image / figure - Photos, illustrations, decorative images
-- check / cheque - Bank check/cheque region
-
-IMPORTANT EXAMPLES:
-
-Example 1 - Signature area with label and box:
-If you see: "Signature: _______________" with a handwritten signature on the line
-Detect 3 SEPARATE elements:
-1. {"type": "header", "bbox": [x1, y1, x2, y2]} - The "Signature:" text
-2. {"type": "signature_box", "bbox": [x3, y3, x4, y4]} - The underline/box container
-3. {"type": "signature", "bbox": [x5, y5, x6, y6]} - The actual handwritten signature
-
-Example 2 - Form field with label:
-If you see: "Name: [___________]" with handwritten text inside
-Detect 3 SEPARATE elements:
-1. {"type": "label", "bbox": [...]} - The "Name:" text
-2. {"type": "box", "bbox": [...]} - The input field box
-3. {"type": "handwritten", "bbox": [...]} - The written name inside
-
-Example 3 - Text inside a box:
-If a paragraph is inside a bordered box, detect BOTH:
-1. {"type": "box", "bbox": [...]} - The container box
-2. {"type": "paragraph", "bbox": [...]} - The text inside
-
-RULES:
-- Detect containers (boxes, fields) separately from their content (text, signatures)
-- Detect labels separately from the fields they describe
-- A single visual region can have MULTIPLE elements (container + content + label)
-- Return ALL detected elements, even if they overlap
-
-Focus on accurate bounding boxes for ALL elements.
-
-Format: [{"type": "element_type", "bbox": [x1, y1, x2, y2]}]
-Return ONLY valid JSON, no additional text."""
+Format: [{"type": "segment", "bbox": [x1, y1, x2, y2]}]
+Return ONLY valid JSON."""
 
         # Call OpenRouter API
         try:
