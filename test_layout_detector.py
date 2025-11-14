@@ -115,6 +115,16 @@ def main():
         action="store_true",
         help="Enable gap analysis and self-critique refinement"
     )
+    parser.add_argument(
+        "--preprocess",
+        action="store_true",
+        help="Apply image preprocessing (CLAHE + sharpening) for better detection"
+    )
+    parser.add_argument(
+        "--show-preprocessing",
+        action="store_true",
+        help="Save preprocessed image for inspection"
+    )
 
     args = parser.parse_args()
 
@@ -149,17 +159,39 @@ def main():
         print(f"{'='*60}")
 
         try:
-            # Detect layout
+            # Show what features are enabled
+            features = []
+            if args.preprocess:
+                features.append("preprocessing")
             if args.refine:
-                print("[DETECTING] Analyzing layout with gap refinement...")
-            else:
-                print("[DETECTING] Analyzing layout elements...")
+                features.append("gap refinement")
+
+            feature_str = " + ".join(features) if features else "standard"
+            print(f"[DETECTING] Analyzing layout with {feature_str}...")
+
+            # Save preprocessed image if requested
+            if args.preprocess and args.show_preprocessing:
+                from src.ocr_pipeline.image_preprocessor import ImagePreprocessor
+                preprocessor = ImagePreprocessor()
+                preprocessed_img = preprocessor.preprocess_for_ocr(
+                    image_path,
+                    deskew=False,
+                    enhance_contrast=False,
+                    clahe=True,
+                    sharpen=True,
+                    denoise=False,
+                    upscale=1.0
+                )
+                preprocessed_path = output_dir / f"{image_path.stem}_preprocessed.png"
+                preprocessed_img.save(preprocessed_path)
+                print(f"[SAVED] Preprocessed image saved to: {preprocessed_path}")
+
             start_time = datetime.now()
 
             if args.refine:
-                result = detector.detect_layout_with_refinement(image_path)
+                result = detector.detect_layout_with_refinement(image_path, preprocess=args.preprocess)
             else:
-                result = detector.detect_layout(image_path)
+                result = detector.detect_layout(image_path, preprocess=args.preprocess)
 
             elapsed = (datetime.now() - start_time).total_seconds()
 

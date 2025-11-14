@@ -8,6 +8,7 @@ from pathlib import Path
 from PIL import Image
 from openai import OpenAI
 from dotenv import load_dotenv
+from .image_preprocessor import ImagePreprocessor
 
 
 class LayoutDetector:
@@ -44,13 +45,15 @@ class LayoutDetector:
 
     def detect_layout(
         self,
-        image_input: Union[str, Path, Image.Image]
+        image_input: Union[str, Path, Image.Image],
+        preprocess: bool = False
     ) -> Dict:
         """
         Detect document layout elements with bounding boxes.
 
         Args:
             image_input: Path to image file or PIL Image object
+            preprocess: Apply image preprocessing (CLAHE, sharpening) for better detection
 
         Returns:
             Dictionary containing:
@@ -69,43 +72,81 @@ class LayoutDetector:
         # Store original dimensions
         original_width, original_height = image.size
 
+        # Apply preprocessing if requested
+        if preprocess:
+            preprocessor = ImagePreprocessor()
+            image = preprocessor.preprocess_for_ocr(
+                image,
+                deskew=False,  # Don't deskew for layout detection
+                enhance_contrast=False,
+                clahe=True,  # Use CLAHE for better contrast
+                sharpen=True,  # Sharpen to make lines/text clearer
+                denoise=False,  # Skip denoising (slow and not always needed)
+                upscale=1.0  # No upscaling (model handles various sizes well)
+            )
+
         # Convert image to base64
         base64_image = self._encode_image_to_base64(image)
 
-        # Generate JSON detection prompt
-        prompt = """Analyze this document and detect ALL layout elements including text, visual elements, and handwritten content.
+        # Generate JSON detection prompt - Detect BOTH structure AND content
+        prompt = """Analyze this document and detect ALL layout elements - BOTH structural containers AND content inside them.
+
+CRITICAL: Detect BOTH structure AND content as SEPARATE elements:
+- A signature box (container) AND the text/signature inside it
+- A field label (e.g., "Signature:") AND the field box AND the content
+- These are NOT mutually exclusive - return ALL of them
 
 IMPORTANT - Your task is to detect component TYPES and BOUNDARIES only. Do NOT extract text content.
 
-Distinguish between different content types:
-- PRINTED text: Uniform font, clean edges, machine-printed (use types: header, paragraph, table)
-- HANDWRITTEN text: Irregular, pen/pencil strokes, human-written annotations (use type: handwritten)
-- SIGNATURES: Cursive/scrawled handwritten signatures, typically at bottom of documents/checks (use type: signature)
-- VISUAL elements: Charts, graphs, diagrams, infographics (use specific types: chart, graph, diagram, infographic, or figure)
+=== STRUCTURAL CONTAINERS (boxes, fields, regions) ===
+- signature_box - Rectangular container/field for signatures (often has underline or border)
+- box / field - Input fields, rectangular containers, form fields
+- checkbox - Small boxes for checkmarks
+- table - Table structures with cells and borders
+- line / separator - Lines, underlines, borders, dividers
 
-Return a JSON array with bounding boxes for:
-- Headers (h1, h2, h3) - printed headings
-- Paragraphs - printed body text
-- Tables - printed table structures with cells
-- Handwritten - ONLY hand-written annotations, notes, or filled-in form entries (NOT signatures)
-- Signature - Cursive signatures at bottom of documents, checks, contracts (use type: "signature")
-- Check/Cheque - Entire bank check/cheque region including all fields (use type: "check" or "cheque")
-- Charts/Graphs - bar charts, pie charts, donut charts, line graphs (use type: "chart" or "graph")
-- Diagrams - flowcharts, organizational diagrams, technical diagrams (use type: "diagram")
-- Infographics - visual data representations, maps with data overlays (use type: "infographic")
-- Images/figures - photos, illustrations, decorative images (use type: "image" or "figure")
-- Lists
-- Any other text blocks
+=== TEXT CONTENT (for OCR to extract later) ===
+- header - Document titles, section headings, field labels
+- paragraph - Body text, descriptions, instructions
+- label - Short field identifiers (e.g., "Name:", "Date:", "Signature:")
+- handwritten - Hand-written annotations, notes (irregular pen/pencil)
+- signature - Actual handwritten signature marks (cursive/scrawled)
 
-For visual elements, try to be specific:
-- If it contains numeric data and visualizations → "chart" or "graph"
-- If it's a structured visual diagram → "diagram"
-- If it combines text, data, and visuals → "infographic"
-- Otherwise → "figure" or "image"
+=== VISUAL ELEMENTS ===
+- chart / graph - Bar charts, pie charts, line graphs, data visualizations
+- diagram - Flowcharts, organizational diagrams, technical diagrams
+- infographic - Visual data representations, maps with data overlays
+- image / figure - Photos, illustrations, decorative images
+- check / cheque - Bank check/cheque region
 
-Only mark something as "handwritten" if it is clearly written by hand with pen/pencil, not printed.
+IMPORTANT EXAMPLES:
 
-Focus ONLY on detecting accurate bounding boxes and element types. Do NOT attempt text extraction.
+Example 1 - Signature area with label and box:
+If you see: "Signature: _______________" with a handwritten signature on the line
+Detect 3 SEPARATE elements:
+1. {"type": "header", "bbox": [x1, y1, x2, y2]} - The "Signature:" text
+2. {"type": "signature_box", "bbox": [x3, y3, x4, y4]} - The underline/box container
+3. {"type": "signature", "bbox": [x5, y5, x6, y6]} - The actual handwritten signature
+
+Example 2 - Form field with label:
+If you see: "Name: [___________]" with handwritten text inside
+Detect 3 SEPARATE elements:
+1. {"type": "label", "bbox": [...]} - The "Name:" text
+2. {"type": "box", "bbox": [...]} - The input field box
+3. {"type": "handwritten", "bbox": [...]} - The written name inside
+
+Example 3 - Text inside a box:
+If a paragraph is inside a bordered box, detect BOTH:
+1. {"type": "box", "bbox": [...]} - The container box
+2. {"type": "paragraph", "bbox": [...]} - The text inside
+
+RULES:
+- Detect containers (boxes, fields) separately from their content (text, signatures)
+- Detect labels separately from the fields they describe
+- A single visual region can have MULTIPLE elements (container + content + label)
+- Return ALL detected elements, even if they overlap
+
+Focus on accurate bounding boxes for ALL elements.
 
 Format: [{"type": "element_type", "bbox": [x1, y1, x2, y2]}]
 Return ONLY valid JSON, no additional text."""
@@ -496,7 +537,8 @@ Return ONLY valid JSON, no additional text."""
     def detect_layout_with_refinement(
         self,
         image_input: Union[str, Path, Image.Image],
-        gap_threshold: int = 100
+        gap_threshold: int = 100,
+        preprocess: bool = False
     ) -> Dict:
         """
         Detect layout with gap analysis and self-critique refinement.
@@ -508,6 +550,7 @@ Return ONLY valid JSON, no additional text."""
         Args:
             image_input: Path to image file or PIL Image object
             gap_threshold: Minimum gap size (pixels) to trigger re-detection
+            preprocess: Apply image preprocessing (CLAHE, sharpening) for better detection
 
         Returns:
             Dictionary containing:
@@ -528,7 +571,7 @@ Return ONLY valid JSON, no additional text."""
 
         print("      [PASS 1/2] Initial layout detection...")
         # Step 1: Initial detection
-        initial_result = self.detect_layout(image_input)
+        initial_result = self.detect_layout(image_input, preprocess=preprocess)
         initial_elements = initial_result['elements']
 
         print(f"      Initial detection: {len(initial_elements)} elements")
