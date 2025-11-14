@@ -3,10 +3,9 @@
 import os
 import base64
 import json
-from typing import Dict, List, Union, Literal
+from typing import Dict, List, Union
 from pathlib import Path
 from PIL import Image
-from bs4 import BeautifulSoup
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -15,9 +14,7 @@ class LayoutDetector:
     """
     Detects document layout elements and bounding boxes using Qwen3-VL.
 
-    Supports two output formats:
-    - html: QwenVL HTML format with data-bbox attributes
-    - json: Structured JSON with bbox coordinates
+    Output format: Structured JSON with bbox coordinates
     """
 
     def __init__(self, api_key: str = None):
@@ -47,19 +44,16 @@ class LayoutDetector:
 
     def detect_layout(
         self,
-        image_input: Union[str, Path, Image.Image],
-        output_format: Literal["html", "json"] = "html"
+        image_input: Union[str, Path, Image.Image]
     ) -> Dict:
         """
         Detect document layout elements with bounding boxes.
 
         Args:
             image_input: Path to image file or PIL Image object
-            output_format: Output format - "html" or "json"
 
         Returns:
             Dictionary containing:
-            - format: Output format used
             - raw_output: Raw model response
             - elements: List of detected elements with bboxes
             - image_dimensions: Original image dimensions (width, height)
@@ -78,18 +72,8 @@ class LayoutDetector:
         # Convert image to base64
         base64_image = self._encode_image_to_base64(image)
 
-        # Generate appropriate prompt
-        if output_format == "html":
-            prompt = """Parse this document to QwenVL HTML format with bounding boxes.
-Detect ALL layout elements including:
-- Printed text (headers, paragraphs, tables)
-- Handwritten text and annotations
-- Forms with filled-in handwritten entries
-
-IMPORTANT: Focus ONLY on detecting element types and boundaries. Do NOT attempt text extraction.
-Include data-bbox attributes for every element."""
-        else:  # json
-            prompt = """Analyze this document and detect ALL layout elements including text, visual elements, and handwritten content.
+        # Generate JSON detection prompt
+        prompt = """Analyze this document and detect ALL layout elements including text, visual elements, and handwritten content.
 
 IMPORTANT - Your task is to detect component TYPES and BOUNDARIES only. Do NOT extract text content.
 
@@ -149,14 +133,10 @@ Return ONLY valid JSON, no additional text."""
 
             raw_output = response.choices[0].message.content
 
-            # Parse output based on format
-            if output_format == "html":
-                elements = self._parse_html_output(raw_output, original_width, original_height)
-            else:
-                elements = self._parse_json_output(raw_output, original_width, original_height)
+            # Parse JSON output
+            elements = self._parse_json_output(raw_output, original_width, original_height)
 
             return {
-                "format": output_format,
                 "raw_output": raw_output,
                 "elements": elements,
                 "image_dimensions": {"width": original_width, "height": original_height}
@@ -249,7 +229,7 @@ Return ONLY valid JSON, no additional text."""
 
             try:
                 # Detect detailed elements in this region
-                region_layout = self.detect_layout(region_image, output_format="json")
+                region_layout = self.detect_layout(region_image)
 
                 # Adjust coordinates from relative to absolute
                 for element in region_layout['elements']:
@@ -287,68 +267,6 @@ Return ONLY valid JSON, no additional text."""
 
         # Encode to base64
         return base64.b64encode(buffer.read()).decode('utf-8')
-
-    def _parse_html_output(
-        self,
-        html_output: str,
-        img_width: int,
-        img_height: int
-    ) -> List[Dict]:
-        """
-        Parse QwenVL HTML output to extract bounding boxes.
-
-        QwenVL uses normalized coordinates (0-1000 scale).
-        We convert them to actual pixel coordinates.
-
-        Args:
-            html_output: HTML string from Qwen3-VL
-            img_width: Original image width
-            img_height: Original image height
-
-        Returns:
-            List of element dictionaries with bbox and metadata
-        """
-        # Extract HTML from markdown code blocks if present
-        if '```html' in html_output:
-            html_output = html_output.split('```html')[1].split('```')[0].strip()
-        elif '```' in html_output:
-            html_output = html_output.split('```')[1].split('```')[0].strip()
-
-        soup = BeautifulSoup(html_output, 'html.parser')
-        elements = []
-
-        # Find all elements with data-bbox attribute
-        for elem in soup.find_all(attrs={"data-bbox": True}):
-            try:
-                # Parse bbox string: "x1 y1 x2 y2" (space-separated, normalized 0-1000)
-                bbox_str = elem['data-bbox']
-                coords = [int(x) for x in bbox_str.split()]
-
-                if len(coords) != 4:
-                    continue
-
-                # Convert from normalized (0-1000) to actual pixels
-                x1 = int((coords[0] / 1000.0) * img_width)
-                y1 = int((coords[1] / 1000.0) * img_height)
-                x2 = int((coords[2] / 1000.0) * img_width)
-                y2 = int((coords[3] / 1000.0) * img_height)
-
-                # Get element type
-                element_type = elem.name
-                element_class = elem.get('class', [])
-
-                elements.append({
-                    'type': element_type,
-                    'class': element_class,
-                    'bbox': [x1, y1, x2, y2],
-                    'bbox_normalized': coords  # Keep original for reference
-                })
-
-            except (ValueError, IndexError) as e:
-                # Skip malformed bboxes
-                continue
-
-        return elements
 
     def _parse_json_output(
         self,
