@@ -12,7 +12,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from PIL import Image
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -39,22 +39,30 @@ class JSONExtractor:
             api_key=self.api_key
         )
 
-        self.model = "anthropic/claude-haiku-4.5"
+        self.model = "anthropic/claude-sonnet-4.5"
 
     def extract(
         self,
         markdown: str,
         json_schema: Dict[str, Any],
-        image_dir: Optional[str] = None
+        image_dir: Optional[str] = None,
+        full_page_image: Optional[Union[str, Path, Image.Image]] = None,
+        chart_metadata: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """
         Extract structured JSON from markdown according to schema.
-        Supports multimodal extraction with chart images.
+        Supports multimodal extraction with images.
 
         Args:
-            markdown: Markdown text from OCR pipeline (may contain [CHART_IMAGE: filename] placeholders)
+            markdown: Markdown text from OCR pipeline
             json_schema: JSON schema defining expected structure
-            image_dir: Optional directory containing chart images (for multimodal extraction)
+            image_dir: Optional directory containing chart region images (legacy modular approach)
+            full_page_image: Optional full page image path or PIL Image (holistic approach)
+            chart_metadata: Optional chart metadata dict with keys:
+                - chart_type: Type of chart (e.g., "donut chart", "bar chart")
+                - title: Chart title
+                - description: What the chart represents
+                - data_summary: Summary of key data elements
 
         Returns:
             Structured JSON matching the schema
@@ -62,14 +70,19 @@ class JSONExtractor:
         Raises:
             ValueError: If extraction fails or returns invalid JSON
         """
-        # Parse markdown to find chart image references
+        # Determine which image approach to use
         chart_images = []
-        if image_dir:
+
+        if full_page_image:
+            # Holistic approach: single full page image
+            chart_images = [self._load_full_page_image(full_page_image)]
+        elif image_dir:
+            # Modular approach: multiple chart region images
             chart_images = self._find_and_load_chart_images(markdown, image_dir)
 
         # Build system prompt and user message
-        system_prompt = self._build_system_prompt(json_schema)
-        user_message = self._build_user_message(markdown, chart_images)
+        system_prompt = self._build_system_prompt(json_schema, chart_metadata)
+        user_message = self._build_user_message(markdown, chart_images, is_full_page=bool(full_page_image), chart_metadata=chart_metadata)
 
         try:
             response = self.client.chat.completions.create(
@@ -173,11 +186,24 @@ Extract the data now:"""
 
         return prompt
 
-    def _build_system_prompt(self, schema: Dict[str, Any]) -> str:
+    def _build_system_prompt(self, schema: Dict[str, Any], chart_metadata: Optional[Dict[str, str]] = None) -> str:
         """Build system prompt with JSON schema and extraction rules."""
         schema_str = json.dumps(schema, indent=2)
 
-        return f"""You are a JSON extraction specialist. Extract structured data from markdown text and images according to the provided JSON schema.
+        # Add chart context if available
+        chart_context = ""
+        if chart_metadata:
+            chart_context = f"""
+
+**CHART/INFOGRAPHIC CONTEXT:**
+This document contains a {chart_metadata.get('chart_type', 'chart/infographic')}.
+- Title: {chart_metadata.get('title', 'No title')}
+- Description: {chart_metadata.get('description', 'N/A')}
+- Data Summary: {chart_metadata.get('data_summary', 'N/A')}
+
+Use this context to better understand the visual data and extract accurate information."""
+
+        return f"""You are a JSON extraction specialist. Extract structured data from markdown text and images according to the provided JSON schema.{chart_context}
 
 **JSON Schema:**
 ```json
@@ -204,17 +230,31 @@ Extract the data now:"""
 - Those text blocks are PART of the chart data (parent categories or additional segments)
 - Include them in the same data array as the chart contents"""
 
-    def _build_user_message(self, markdown: str, chart_images: List[Dict]) -> List[Dict]:
+    def _build_user_message(self, markdown: str, chart_images: List[Dict], is_full_page: bool = False, chart_metadata: Optional[Dict[str, str]] = None) -> List[Dict]:
         """Build multimodal user message with text and chart images."""
         content = []
+
+        # Add chart metadata context if available
+        metadata_text = ""
+        if chart_metadata:
+            metadata_text = f"""
+
+**Chart/Infographic Metadata:**
+- Type: {chart_metadata.get('chart_type', 'Unknown')}
+- Title: {chart_metadata.get('title', 'No title')}
+- Description: {chart_metadata.get('description', 'N/A')}
+- Data Summary: {chart_metadata.get('data_summary', 'N/A')}
+
+Use this metadata to understand what the chart represents and extract the data accurately.
+"""
 
         # Add markdown text first
         content.append({
             "type": "text",
-            "text": f"Extract structured data from this document.\n\n**Markdown Content:**\n```markdown\n{markdown}\n```"
+            "text": f"Extract structured data from this document.{metadata_text}\n\n**Markdown Content:**\n```markdown\n{markdown}\n```"
         })
 
-        # Add chart images
+        # Add images
         for chart in chart_images:
             content.append({
                 "type": "image_url",
@@ -222,13 +262,49 @@ Extract the data now:"""
                     "url": f"data:image/png;base64,{chart['base64']}"
                 }
             })
-            # Add context about which chart this is
-            content.append({
-                "type": "text",
-                "text": f"\n[This is the image for: {chart['filename']}]\n"
-            })
+            # Add context about the image
+            if is_full_page:
+                content.append({
+                    "type": "text",
+                    "text": "\n[This is the full page image showing complete visual context and spatial relationships]\n"
+                })
+            else:
+                content.append({
+                    "type": "text",
+                    "text": f"\n[This is a chart region: {chart['filename']}]\n"
+                })
 
         return content
+
+    def _load_full_page_image(self, image_input: Union[str, Path, Image.Image]) -> Dict:
+        """
+        Load a single full page image for holistic extraction.
+
+        Args:
+            image_input: Path to image file or PIL Image object
+
+        Returns:
+            Dict with 'filename' and 'base64' keys
+        """
+        # Load image
+        if isinstance(image_input, (str, Path)):
+            image = Image.open(image_input)
+            filename = Path(image_input).name
+        elif isinstance(image_input, Image.Image):
+            image = image_input
+            filename = "full_page.png"
+        else:
+            raise ValueError("image_input must be a file path or PIL Image object")
+
+        # Encode to base64
+        base64_image = self._encode_image_to_base64(image)
+
+        print("\n[Multimodal - Holistic] Loaded full page image for complete visual context")
+
+        return {
+            'filename': filename,
+            'base64': base64_image
+        }
 
     def _find_and_load_chart_images(self, markdown: str, image_dir: str) -> List[Dict]:
         """

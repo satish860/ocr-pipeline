@@ -44,12 +44,9 @@ ocr-pipeline/
 │   ├── ocr_pipeline/       # Core pipeline modules
 │   └── api/                # FastAPI application
 │       └── main.py         # REST API endpoints
-├── scripts/
-│   ├── pdf_to_images.py    # PDF conversion utility
-│   └── batch_process_pdf.py # Batch processing
+├── input/                  # Place input images here
+├── output/                 # Processed results
 ├── Dockerfile              # Container configuration
-├── wrangler.toml           # Cloudflare Containers config
-├── test_layout_detector.py # Pipeline testing
 └── pyproject.toml          # Dependencies
 ```
 
@@ -59,18 +56,8 @@ ocr-pipeline/
 1. Copy `.env.example` to `.env` and add your OpenRouter API key
 2. Install dependencies: `uv sync`
 3. Run the API: `uv run uvicorn src.api.main:app --reload`
-4. Access docs: http://localhost:8000/docs
-
-### CLI Usage
-Process a single image:
-```bash
-uv run python test_layout_detector.py input/image.png
-```
-
-Batch process a PDF:
-```bash
-uv run python scripts/batch_process_pdf.py "path/to/document.pdf"
-```
+4. Access API docs: http://localhost:8000/docs
+5. Upload images via the `/ocr` endpoint
 
 ## API Endpoints
 
@@ -106,16 +93,7 @@ Health check endpoint.
 
 ## Deployment
 
-### Railway (Recommended - Easiest)
-1. Go to https://railway.app
-2. Sign up with GitHub
-3. New Project → Deploy from GitHub repo → Select `ocr-pipeline`
-4. Add environment variable: `OPENROUTER_API_KEY`
-5. Railway auto-deploys! ✅
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
-
-### Docker (Local/Any Platform)
+### Docker
 1. Build image:
    ```bash
    docker build -t ocr-pipeline .
@@ -128,13 +106,13 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
      ocr-pipeline
    ```
 
-### Alternative Platforms
-Since this is a standard Docker container, you can deploy to:
-- **Fly.io**: `fly deploy`
-- **Railway**: Connect GitHub repo
-- **Render**: Connect GitHub repo
+### Cloud Platforms
+This is a standard Docker container that can be deployed to any platform:
+- **Fly.io**, **Railway**, **Render**: Connect GitHub repo
 - **Google Cloud Run**: `gcloud run deploy`
 - **AWS ECS/Fargate**: Standard Docker deployment
+
+**Required Environment Variable**: `OPENROUTER_API_KEY`
 
 ## Storage Optimization
 The pipeline has been optimized to save only essential outputs:
@@ -199,22 +177,13 @@ Input Image
          Markdown Output
 ```
 
-## Known Issues & Improvements
+## Features
 
-### Issue: Rotation Detection Fails on Complex Forms
-**Problem**: `input/rotated.png` (Form 1040 rotated 90° clockwise) is not corrected by the current OpenCV heuristic rotation detection.
-
-**Root Cause**: The `detect_orientation()` method in `image_preprocessor.py:24-91` uses OpenCV edge detection + Hough line transform to analyze horizontal vs vertical lines. Complex forms with tables have many lines in both directions, confusing the heuristic.
-
-**Current Behavior**:
-- Input: `input/rotated.png` (form rotated 90° clockwise)
-- Expected: Detect and apply 90° counter-clockwise rotation
-- Actual: No rotation applied → OCR runs on sideways text → garbled output
-
-**Solution in Progress**: Replace OpenCV heuristic with AI-powered rotation detection using Qwen-8B via OpenRouter.
-
-### Planned Enhancement: Document Classification
-Future work will add document type detection (form/check/general) with specialized handling:
+### Document Classification
+The pipeline includes document type detection (form/check/general) with specialized handling:
 - **Forms**: Extract as structured HTML with field overlay
 - **Checks**: Extract structured JSON with check fields
-- **General** (invoices, documents): Continue using markdown (current behavior)
+- **General** (invoices, documents): Markdown output with spatial analysis
+
+### Smart Routing
+Automatically routes documents to appropriate extraction pipelines based on document type.

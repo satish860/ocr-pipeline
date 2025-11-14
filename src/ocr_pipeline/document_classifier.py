@@ -175,33 +175,56 @@ class DocumentClassifier:
         # Document classification prompt
         prompt = """Analyze this document image and classify it into ONE of these types:
 
-**1. FORM** - Documents with form structure:
+**1. CHART** - Business charts and graphs:
+- Pie charts, donut charts, bar charts, line graphs
+- Visual data representation with segments, bars, or data points
+- Has chart titles, legends, data labels with values
+- Examples: Revenue charts, market share graphs, financial dashboards
+- Key indicators: Visual data visualization, chart elements (pie slices, bars, lines)
+
+**2. INFOGRAPHIC** - Complex visual information displays:
+- Maps with data overlays, flowcharts, process diagrams
+- Multiple visual elements combined (maps + charts + icons)
+- Designed for visual storytelling or data presentation
+- Examples: Geographic revenue maps, organizational charts, process flows
+- Key indicators: Multiple visual elements, decorative graphics, spatial layout matters
+
+**3. TABLE** - Structured tabular data:
+- Rows and columns with clear grid structure
+- Data organized in cells with headers
+- Minimal graphics, primarily text/numbers in table format
+- Examples: Financial tables, data grids, comparison tables, spreadsheets
+- Key indicators: Clear row/column structure, cell borders, header row
+
+**4. FORM** - Documents with form structure:
 - Has form field labels (e.g., "Name:", "Date:", "Address:", "SSN:")
 - Has input fields, checkboxes, or blank spaces for filling
 - Examples: Tax forms (1040, W-2), application forms, surveys, registration forms
 - Key indicators: Structured layout with labels and fill-in areas
 
-**2. CHEQUE** - Bank cheques/checks:
+**5. CHEQUE** - Bank cheques/checks:
 - Has cheque-specific fields: "Pay to the order of", amount fields (numeric and written)
 - Has MICR line at bottom (magnetic ink characters)
 - Has bank name, cheque number, date, signature line
 - Examples: Personal cheques, business cheques
 - Key indicators: Standard cheque format with payee, amount, bank details
 
-**3. GENERAL** - All other documents:
-- Invoices, receipts, letters, reports, articles, tables, flyers
-- Standard documents without form structure or cheque format
-- Examples: Invoices, business letters, reports, receipts, tables, product catalogs
-- Key indicators: Flowing text or tabular data without form fields
+**6. GENERAL** - All other documents:
+- Invoices, receipts, letters, reports, articles, flyers
+- Standard documents without specialized visual structure
+- Examples: Invoices, business letters, reports, receipts, product catalogs
+- Key indicators: Flowing text or simple layout without specialized structure
 
 IMPORTANT:
-- Only classify as "form" if it has BOTH labels AND fillable fields
-- Only classify as "cheque" if it's a bank cheque with standard cheque format
-- When in doubt, choose "general"
+- Prioritize CHART if you see pie/donut/bar charts even if there are tables nearby
+- Classify as INFOGRAPHIC if multiple visual elements (map + chart, diagram + icons)
+- Classify as TABLE only if the ENTIRE document is primarily a data grid
+- Classify as FORM only if it has BOTH labels AND fillable fields
+- When in doubt between types, choose the most visually dominant element
 
 Return ONLY this JSON:
 {
-  "document_type": "form" or "cheque" or "general",
+  "document_type": "chart" or "infographic" or "table" or "form" or "cheque" or "general",
   "confidence": 0.0 to 1.0,
   "reasoning": "brief explanation of why you chose this type"
 }"""
@@ -416,8 +439,9 @@ Return ONLY this JSON:
             data = json.loads(raw_output)
 
             # Validate document type
-            doc_type = data.get('document_type', 'general')
-            if doc_type not in ['form', 'cheque', 'general']:
+            doc_type = data.get('document_type', 'general').lower()  # Convert to lowercase
+            valid_types = ['chart', 'infographic', 'table', 'form', 'cheque', 'general']
+            if doc_type not in valid_types:
                 if self.verbose:
                     print(f"[WARNING] Invalid document type '{doc_type}', defaulting to 'general'")
                 doc_type = 'general'

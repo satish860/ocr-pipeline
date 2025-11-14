@@ -1,16 +1,17 @@
 # OCR Pipeline
 
-A lightweight two-stage OCR pipeline that combines **QwenVL** for intelligent layout detection and **Mistral AI** for high-quality text extraction. Both models run via OpenRouter APIs, requiring **no local GPU** - perfect for serverless deployments.
+A lightweight two-stage OCR pipeline that combines **QwenVL** for intelligent layout detection and **Gemini Flash 2.5** for high-quality text extraction. Both models run via OpenRouter APIs, requiring **no local GPU** - perfect for serverless deployments.
 
 ## Features
 
 - **Two-Stage Pipeline**:
   - **Stage 1**: QwenVL (Qwen2.5-VL-7B-Instruct) detects document layout and extracts bounding boxes
-  - **Stage 2**: Mistral AI (pixtral-12b-2409) performs OCR on each detected region
+  - **Stage 2**: Gemini Flash 2.5 (google/gemini-2.5-flash) performs OCR on each detected region
 - **Image Preprocessing**: Automatic deskewing and rotation correction
 - **Layout Detection**: Identifies tables, paragraphs, headers, and handwritten text
 - **Spatial Analysis**: Maintains spatial relationships between text regions
-- **PDF Support**: Batch processing with automatic page conversion
+- **Document Classification**: Intelligent routing for forms, checks, and general documents
+- **Structured Extraction**: JSON extraction for forms and checks, markdown for documents
 - **REST API**: Production-ready FastAPI endpoints
 - **Storage Optimized**: Saves only annotated images and combined markdown (90% storage reduction)
 - **CPU-Only**: Lightweight API orchestration - no GPU required
@@ -44,7 +45,7 @@ uv sync
 
 ## Usage
 
-### 1. REST API (Recommended for Production)
+### REST API
 
 Start the FastAPI server:
 ```bash
@@ -68,6 +69,7 @@ POST /ocr
 **Request Parameters:**
 - `file`: Image file (PNG, JPG, JPEG)
 - `include_annotated_image`: Boolean (optional, default: true)
+- `extract_charts_as_tables`: Boolean (optional, default: false)
 
 **Response Example:**
 ```json
@@ -102,38 +104,9 @@ curl -X POST "http://localhost:8000/ocr" \
   -F "include_annotated_image=true"
 ```
 
-### 2. CLI - Single Image
-
-Process a single image from the command line:
-```bash
-uv run python test_layout_detector.py path/to/image.png
-```
-
 Output files will be saved to the `output/` directory:
-- `image_annotated.png` - Visual with colored bounding boxes
-- `image_complete.md` - Markdown with spatial relationships
-
-### 3. CLI - Batch PDF Processing
-
-Convert and process an entire PDF document:
-```bash
-uv run python scripts/batch_process_pdf.py "path/to/document.pdf"
-```
-
-This will:
-1. Convert PDF pages to images
-2. Process each page through the OCR pipeline
-3. Generate annotated images and markdown for each page
-
-Output structure:
-```
-output/
-├── page_0001_annotated.png
-├── page_0001_complete.md
-├── page_0002_annotated.png
-├── page_0002_complete.md
-...
-```
+- `*_annotated.png` - Visual with colored bounding boxes
+- `*_complete.md` - Markdown with spatial relationships
 
 ## Architecture
 
@@ -146,7 +119,7 @@ output/
                        ▼                                             ▼
                 ┌─────────────┐                            ┌──────────────┐
                 │  OpenRouter │                            │  OpenRouter  │
-                │   (QwenVL)  │                            │  (Mistral)   │
+                │   (QwenVL)  │                            │   (Gemini)   │
                 │   Layout    │────▶ Bounding Boxes ──────▶│     OCR      │
                 └─────────────┘                            └──────────────┘
                                                                    │
@@ -158,7 +131,7 @@ output/
                                                            └───────────────┘
 ```
 
-**Key Point**: Both QwenVL and Mistral AI run via OpenRouter APIs. This service only handles orchestration and image preprocessing - no heavy ML inference locally.
+**Key Point**: Both QwenVL and Gemini Flash 2.5 run via OpenRouter APIs. This service only handles orchestration and image preprocessing - no heavy ML inference locally.
 
 ## Output Format
 
@@ -180,17 +153,7 @@ Each processed image/page generates two files:
 
 ## Deployment
 
-### Railway (Recommended - Easiest)
-
-1. Sign up at [railway.app](https://railway.app)
-2. Create new project → Deploy from GitHub repo
-3. Select your `ocr-pipeline` repository
-4. Add environment variable: `OPENROUTER_API_KEY=your_key_here`
-5. Railway auto-deploys from Dockerfile
-
-Detailed instructions: See [DEPLOYMENT.md](DEPLOYMENT.md)
-
-### Docker (Any Platform)
+### Docker
 
 Build and run locally:
 ```bash
@@ -198,11 +161,15 @@ docker build -t ocr-pipeline .
 docker run -p 8000:8000 -e OPENROUTER_API_KEY=your_key ocr-pipeline
 ```
 
+### Cloud Platforms
+
 Deploy to any container platform:
-- **Render.com**: Connect GitHub repo, auto-deploy
+- **Railway**, **Render.com**: Connect GitHub repo, auto-deploy from Dockerfile
 - **Fly.io**: `fly deploy`
 - **Google Cloud Run**: `gcloud run deploy`
 - **AWS ECS/Fargate**: Standard Docker deployment
+
+**Required Environment Variable**: `OPENROUTER_API_KEY`
 
 ## Environment Variables
 
@@ -218,7 +185,6 @@ Deploy to any container platform:
 ocr-pipeline/
 ├── .env.example              # Environment template
 ├── CLAUDE.md                 # AI assistant documentation
-├── DEPLOYMENT.md             # Deployment guide
 ├── README.md                 # This file
 ├── Dockerfile                # Container configuration
 ├── pyproject.toml            # Dependencies (UV)
@@ -228,17 +194,16 @@ ocr-pipeline/
 │   │   ├── cli.py            # CLI entry point
 │   │   ├── image_preprocessor.py    # Deskewing & rotation
 │   │   ├── layout_detector.py       # QwenVL integration
-│   │   ├── ocr_extractor.py         # Mistral OCR
+│   │   ├── ocr_extractor.py         # Gemini OCR
 │   │   ├── region_extractor.py      # Bounding box processing
-│   │   └── spatial_analyzer.py      # Spatial relationships
+│   │   ├── spatial_analyzer.py      # Spatial relationships
+│   │   ├── document_classifier.py   # Document type detection
+│   │   ├── json_extractor.py        # Structured data extraction
+│   │   └── smart_router.py          # Routing logic
 │   └── api/
 │       ├── __init__.py
 │       └── main.py           # FastAPI REST endpoints
-├── scripts/
-│   ├── pdf_to_images.py      # PDF conversion utility
-│   ├── batch_process_pdf.py  # Batch PDF processor
-│   └── visualize_layout.py   # Debug visualization
-├── test_layout_detector.py   # Single image CLI test
+├── input/                    # Input files directory
 └── output/                   # Generated files directory
 ```
 
@@ -248,7 +213,7 @@ ocr-pipeline/
 - **UV**: Fast, modern package manager
 - **FastAPI**: High-performance REST API framework
 - **QwenVL**: Qwen2.5-VL-7B-Instruct (via OpenRouter) for layout analysis
-- **Mistral AI**: pixtral-12b-2409 (via OpenRouter) for OCR
+- **Gemini Flash 2.5**: google/gemini-2.5-flash (via OpenRouter) for OCR
 - **Pillow**: Image manipulation
 - **OpenCV**: Image preprocessing (deskewing, rotation)
 - **PyMuPDF**: PDF processing
@@ -263,7 +228,7 @@ ocr-pipeline/
 
 ### Cost Considerations
 - **QwenVL** (layout detection): ~$0.XX per image
-- **Mistral OCR**: ~$0.XX per region
+- **Gemini OCR**: ~$0.XX per region
 - **Compute**: Minimal (CPU-only, lightweight container)
 - **Storage**: 2 files per page (annotated image + markdown)
 
@@ -278,26 +243,20 @@ This pipeline is optimized for minimal storage:
 
 ## Development
 
-### Testing a Feature
-
-```bash
-# Single image test
-uv run python test_layout_detector.py test_images/sample.png
-
-# PDF batch test
-uv run python scripts/batch_process_pdf.py "test_docs/sample.pdf"
-
-# API test
-uv run uvicorn src.api.main:app --reload
-# Then use curl or visit http://localhost:8000/docs
-```
-
 ### Development Philosophy
 
-From CLAUDE.md:
 1. Test immediately after implementing each feature
 2. Incremental development approach
 3. Run code to verify at each step
+
+### Testing
+
+Start the development server:
+```bash
+uv run uvicorn src.api.main:app --reload
+```
+
+Then use the interactive API docs at `http://localhost:8000/docs` or test with curl.
 
 ## Troubleshooting
 
