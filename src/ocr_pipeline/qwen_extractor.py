@@ -94,8 +94,9 @@ def call_qwen_markdown_api(
     image_path: str,
     prompt: str = "qwenvl markdown",
     min_pixels: int = 512 * 32 * 32,
-    max_pixels: int = 2048 * 32 * 32
-) -> str:
+    max_pixels: int = 2048 * 32 * 32,
+    include_usage: bool = False
+):
     """
     Call OpenRouter API with Qwen3-VL model to get Markdown output.
 
@@ -104,9 +105,11 @@ def call_qwen_markdown_api(
         prompt: Prompt to send (default: "qwenvl markdown")
         min_pixels: Minimum pixels for image resize
         max_pixels: Maximum pixels for image resize
+        include_usage: Whether to include usage/cost data in response
 
     Returns:
-        Markdown response string with coordinate annotations
+        If include_usage=False: Markdown response string with coordinate annotations
+        If include_usage=True: Tuple of (markdown_string, usage_dict)
     """
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
@@ -157,11 +160,21 @@ def call_qwen_markdown_api(
         ]
     }
 
+    # Add usage tracking if requested
+    if include_usage:
+        payload["usage"] = {"include": True}
+
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
 
     result = response.json()
-    return result["choices"][0]["message"]["content"]
+    content = result["choices"][0]["message"]["content"]
+
+    # Return usage data if requested
+    if include_usage:
+        return content, result.get("usage", {})
+    else:
+        return content
 
 
 def clean_markdown_wrapper(content: str) -> str:
@@ -402,7 +415,8 @@ def extract_document(
     image_path: str,
     min_pixels: int = 512 * 32 * 32,
     max_pixels: int = 2048 * 32 * 32,
-    include_images: bool = True
+    include_images: bool = True,
+    include_usage: bool = False
 ) -> Dict:
     """
     Extract document content using QwenVL single-stage pipeline.
@@ -415,12 +429,14 @@ def extract_document(
         min_pixels: Minimum pixels for image resize
         max_pixels: Maximum pixels for image resize
         include_images: Whether to extract and embed images
+        include_usage: Whether to include usage/cost data in response
 
     Returns:
         Dict with:
         - markdown: Markdown with inline base64 images (if include_images=True)
         - images: List of extracted images [{type, base64, bbox}]
         - elements: List of detected elements with coordinates
+        - usage: Usage/cost data (if include_usage=True)
         - success: Boolean indicating success
         - error: Error message if success=False
     """
@@ -452,12 +468,20 @@ Convert this document to markdown format with the following requirements:
 """
 
         # Call QwenVL API
-        markdown_raw = call_qwen_markdown_api(
+        api_result = call_qwen_markdown_api(
             image_path,
             prompt=enhanced_prompt,
             min_pixels=min_pixels,
-            max_pixels=max_pixels
+            max_pixels=max_pixels,
+            include_usage=include_usage
         )
+
+        # Handle both return types (string or tuple)
+        if include_usage:
+            markdown_raw, usage = api_result
+        else:
+            markdown_raw = api_result
+            usage = {}
 
         # Clean markdown (remove code fences)
         markdown_clean = clean_markdown_wrapper(markdown_raw)
@@ -484,6 +508,7 @@ Convert this document to markdown format with the following requirements:
             'markdown': markdown_with_images,
             'images': extracted_images,
             'elements': elements,
+            'usage': usage,
             'error': None
         }
 
@@ -493,5 +518,6 @@ Convert this document to markdown format with the following requirements:
             'markdown': '',
             'images': [],
             'elements': [],
+            'usage': {},
             'error': str(e)
         }

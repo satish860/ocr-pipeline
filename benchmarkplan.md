@@ -17,6 +17,20 @@ Input Image → QwenVL (markdown + base64) → Claude Sonnet 4.5 (JSON extractio
 
 ---
 
+## Progress Tracker
+
+| Phase | Status | Completion Date | Cost |
+|-------|--------|----------------|------|
+| **Phase 1**: Dataset Integration | ✅ COMPLETE | 2025-11-15 | $0 |
+| **Phase 2**: QwenVL Baseline | ⏳ Pending | - | ~$0.50-$2.00 |
+| **Phase 3**: Claude JSON Extraction | ⏳ Pending | - | ~$1.00-$3.00 |
+| **Phase 4**: Evaluation Metrics | ⏳ Pending | - | ~$2.00-$5.00 |
+| **Phase 5**: Category Analysis | ⏳ Pending | - | ~$5.00-$200.00 |
+
+**Total Cost So Far**: $0.00
+
+---
+
 ## Phase 1: Dataset Integration 📊
 
 ### Goal
@@ -61,10 +75,21 @@ uv run python explore_dataset.py
 **$0** - Just loading and viewing data
 
 ### Deliverables
-- [ ] `src/ocr_pipeline/benchmark/__init__.py`
-- [ ] `src/ocr_pipeline/benchmark/dataset.py`
-- [ ] `explore_dataset.py` (temporary exploration script)
-- [ ] Understanding of dataset structure documented
+- [x] `benchmark/__init__.py` (top-level, separate from src/)
+- [x] `benchmark/dataset.py` (dataset loader with 3 sampling methods)
+- [x] `scripts/explore_dataset.py` (temporary exploration script)
+- [x] Understanding of dataset structure documented
+
+### Completion Notes
+- **Status**: ✅ COMPLETE
+- **Date**: 2025-11-15
+- **Key Findings**:
+  - Dataset has 1,000 samples across 40+ document formats
+  - Metadata fields stored as JSON strings (require parsing)
+  - Categories: CLEAN (338), HIGH_QUALITY (303), LOW_QUALITY (259), PHOTO (100)
+  - Common formats: BANK_CHECK, SHIPPING_INVOICE, PATIENT_INTAKE, TABLE, CHART
+  - JSON schemas average 4.3 fields (range: 1-16)
+- **All sampling methods tested and working**: random, category filtering, stratified
 
 ---
 
@@ -118,8 +143,8 @@ uv run python test_qwen_baseline.py
 **~$0.50 - $2.00** for 10 samples (QwenVL only)
 
 ### Deliverables
-- [ ] `test_qwen_baseline.py`
-- [ ] `./baseline_outputs/` folder with 10 markdown files
+- [ ] `scripts/test_qwen_baseline.py`
+- [ ] `./baseline_outputs/` folder with 10 markdown files (optional)
 - [ ] Cost estimate for full run
 - [ ] Performance metrics (time, success rate)
 
@@ -177,8 +202,8 @@ uv run python test_claude_extraction.py
 **~$1.00 - $3.00** for 5 samples (QwenVL + Claude)
 
 ### Deliverables
-- [ ] `src/ocr_pipeline/benchmark/claude_extractor.py`
-- [ ] `test_claude_extraction.py`
+- [ ] `benchmark/claude_extractor.py`
+- [ ] `scripts/test_claude_extraction.py`
 - [ ] Updated `.env.example` with `ANTHROPIC_API_KEY`
 - [ ] Cost estimate for Claude extraction
 
@@ -248,8 +273,8 @@ uv run python test_evaluation.py
 **~$2.00 - $5.00** for 10 samples (QwenVL + Claude)
 
 ### Deliverables
-- [ ] `src/ocr_pipeline/benchmark/evaluator.py`
-- [ ] `test_evaluation.py`
+- [ ] `benchmark/evaluator.py`
+- [ ] `scripts/test_evaluation.py`
 - [ ] Validation report (manual check of 3 samples)
 - [ ] Confirmed accuracy metric is working correctly
 
@@ -343,10 +368,10 @@ uv run python -m ocr_pipeline.benchmark.cli analyze
 - **1,000 samples**: ~$100.00 - $200.00
 
 ### Deliverables
-- [ ] `src/ocr_pipeline/benchmark/analyzer.py`
-- [ ] `src/ocr_pipeline/benchmark/runner.py`
-- [ ] `src/ocr_pipeline/benchmark/cli.py`
-- [ ] `src/ocr_pipeline/benchmark/reporter.py`
+- [ ] `benchmark/analyzer.py`
+- [ ] `benchmark/runner.py`
+- [ ] `benchmark/cli.py`
+- [ ] `benchmark/reporter.py`
 - [ ] Benchmark results for 50-100 samples
 - [ ] Category performance report
 - [ ] Strengths and weaknesses documented
@@ -360,22 +385,26 @@ ocr-pipeline/
 ├── benchmarkplan.md              # This file
 ├── src/
 │   └── ocr_pipeline/
-│       ├── benchmark/
-│       │   ├── __init__.py
-│       │   ├── dataset.py        # HuggingFace loader
-│       │   ├── claude_extractor.py  # Claude JSON extraction
-│       │   ├── evaluator.py      # JSON diff + accuracy
-│       │   ├── analyzer.py       # Category analysis
-│       │   ├── runner.py         # Pipeline orchestration
-│       │   ├── reporter.py       # Result formatting
-│       │   └── cli.py            # Benchmark CLI
 │       ├── qwen_extractor.py     # UNCHANGED
 │       └── cli.py                # UNCHANGED
-├── explore_dataset.py            # Phase 1 script
-├── test_qwen_baseline.py         # Phase 2 script
-├── test_claude_extraction.py     # Phase 3 script
-└── test_evaluation.py            # Phase 4 script
+├── benchmark/                    # Top-level (separate from src/)
+│   ├── __init__.py               # ✅ DONE
+│   ├── dataset.py                # ✅ DONE - HuggingFace loader
+│   ├── claude_extractor.py       # Phase 3 - Claude JSON extraction
+│   ├── evaluator.py              # Phase 4 - JSON diff + accuracy
+│   ├── analyzer.py               # Phase 5 - Category analysis
+│   ├── runner.py                 # Phase 5 - Pipeline orchestration
+│   ├── reporter.py               # Phase 5 - Result formatting
+│   └── cli.py                    # Phase 5 - Benchmark CLI
+├── scripts/                      # Temporary test scripts
+│   ├── explore_dataset.py        # ✅ DONE - Phase 1 script
+│   ├── inspect_sample.py         # ✅ DONE - Debug helper
+│   ├── test_qwen_baseline.py     # Phase 2 script
+│   ├── test_claude_extraction.py # Phase 3 script
+│   └── test_evaluation.py        # Phase 4 script
 ```
+
+**Note**: Benchmark code is at top-level `benchmark/` (not in `src/`) to keep it separate from production pipeline code.
 
 ---
 
@@ -396,19 +425,23 @@ ocr-pipeline/
 ```toml
 # pyproject.toml
 [project.dependencies]
-datasets = "*"          # Phase 1
-anthropic = "*"         # Phase 3
+datasets = "*"          # ✅ ADDED - Phase 1
+anthropic = "*"         # Phase 3 (pending)
 ```
+
+**Added Dependencies**:
+- ✅ `datasets` - HuggingFace datasets library (Phase 1)
 
 ---
 
 ## Next Steps
 
-1. ✅ **Read this plan thoroughly**
-2. ⏭️ **Start with Phase 1** - Dataset Integration
-3. ⏸️ Pause after each phase to review results
-4. 🔁 Only proceed to next phase after success criteria met
-5. 💰 Monitor costs closely (start small, scale up)
+1. ✅ **Read this plan thoroughly** - DONE
+2. ✅ **Phase 1: Dataset Integration** - COMPLETE (2025-11-15)
+3. ⏭️ **Phase 2: QwenVL Baseline** - Next step
+4. ⏸️ Pause after each phase to review results
+5. 🔁 Only proceed to next phase after success criteria met
+6. 💰 Monitor costs closely (start small, scale up)
 
 ---
 

@@ -1,0 +1,232 @@
+{
+  "config": {
+    "num_samples": 5,
+    "seed": 42,
+    "date": "2025-11-15 19:10:15"
+  },
+  "summary": {
+    "success_rate": "5/5",
+    "avg_time_seconds": 19.25,
+    "total_cost_dollars": 0.0,
+    "avg_cost_dollars": 0.0,
+    "projected_1000_cost_dollars": 0.0
+  },
+  "samples": [
+    {
+      "sample_id": 654,
+      "format": "PETITION_FORM",
+      "quality": "CLEAN",
+      "success": true,
+      "error": null,
+      "processing_time": 24.873902320861816,
+      "cost_dollars": 1.968516e-09,
+      "usage": {
+        "total_tokens": 2664,
+        "prompt_tokens": 1895,
+        "completion_tokens": 769,
+        "cached_tokens": 0
+      },
+      "markdown_length": 354008,
+      "element_count": 5,
+      "image_count": 5,
+      "elements": [
+        {
+          "type": "Table",
+          "bbox": [
+            59,
+            197,
+            939,
+            246
+          ]
+        },
+        {
+          "type": "Table",
+          "bbox": [
+            59,
+            262,
+            939,
+            737
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            144,
+            770,
+            274,
+            808
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            114,
+            815,
+            277,
+            833
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            413,
+            898,
+            552,
+            930
+          ]
+        }
+      ]
+    },
+    {
+      "sample_id": 114,
+      "format": "PETITION_FORM",
+      "quality": "CLEAN",
+      "success": true,
+      "error": null,
+      "processing_time": 25.35833168029785,
+      "cost_dollars": 2.042964e-09,
+      "usage": {
+        "total_tokens": 2711,
+        "prompt_tokens": 1895,
+        "completion_tokens": 816,
+        "cached_tokens": 0
+      },
+      "markdown_length": 361228,
+      "element_count": 6,
+      "image_count": 6,
+      "elements": [
+        {
+          "type": "Table",
+          "bbox": [
+            57,
+            168,
+            937,
+            210
+          ]
+        },
+        {
+          "type": "Table",
+          "bbox": [
+            57,
+            221,
+            937,
+            777
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            150,
+            814,
+            324,
+            836
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            150,
+            848,
+            378,
+            867
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            150,
+            908,
+            253,
+            926
+          ]
+        },
+        {
+          "type": "Handwritten",
+          "bbox": [
+            320,
+            908,
+            472,
+            932
+          ]
+        }
+      ]
+    },
+    {
+      "sample_id": 25,
+      "format": "PHOTO_NUTRITION",
+      "quality": "PHOTO",
+      "success": true,
+      "error": null,
+      "processing_time": 13.557831764221191,
+      "cost_dollars": 1.268388e-09,
+      "usage": {
+        "total_tokens": 2222,
+        "prompt_tokens": 1895,
+        "completion_tokens": 327,
+        "cached_tokens": 0
+      },
+      "markdown_length": 130708,
+      "element_count": 1,
+      "image_count": 1,
+      "elements": [
+        {
+          "type": "Table",
+          "bbox": [
+            144,
+            775,
+            903,
+            989
+          ]
+        }
+      ]
+    },
+    {
+      "sample_id": 759,
+      "format": "SHIFT_SCHEDULE",
+      "quality": "HIGH_QUALITY",
+      "success": true,
+      "error": null,
+      "processing_time": 21.867894887924194,
+      "cost_dollars": 1.627956e-09,
+      "usage": {
+        "total_tokens": 2449,
+        "prompt_tokens": 1895,
+        "completion_tokens": 554,
+        "cached_tokens": 0
+      },
+      "markdown_length": 805296,
+      "element_count": 1,
+      "image_count": 1,
+      "elements": [
+        {
+          "type": "Table",
+          "bbox": [
+            22,
+            55,
+            949,
+            950
+          ]
+        }
+      ]
+    },
+    {
+      "sample_id": 281,
+      "format": "COMMERCIAL_LEASE_AGREEMENT",
+      "quality": "CLEAN",
+      "success": true,
+      "error": null,
+      "processing_time": 10.580997943878174,
+      "cost_dollars": 1.938816e-09,
+      "usage": {
+        "total_tokens": 5058,
+        "prompt_tokens": 4568,
+        "completion_tokens": 490,
+        "cached_tokens": 4
+      },
+      "markdown_length": 1776,
+      "element_count": 0,
+      "image_count": 0,
+      "elements": []
+    }
+  ]
+}
