@@ -409,12 +409,28 @@ def main(image_path: str = None):
         print("QWENVL MARKDOWN FORMAT")
         print("=" * 80)
 
-        print("\nCalling API with 'qwenvl markdown' prompt...")
-        markdown_output_raw = call_qwen_markdown_api(test_image, prompt="qwenvl markdown")
+        # Enhanced prompt to explicitly request LaTeX tables with coordinates
+        # This is needed for OpenRouter API to match Dashscope's "qwenvl markdown" format
+        enhanced_prompt = """qwenvl markdown
+
+Convert this document to markdown format with the following requirements:
+- Represent all tables in LaTeX format using \\begin{tabular} and \\end{tabular}
+- Add coordinate annotations before each table using HTML comments: <!-- Table (x1, y1, x2, y2) -->
+- Add coordinate annotations for images: <!-- Image (x1, y1, x2, y2) -->
+- Coordinates should be in 0-1000 scale relative to image dimensions
+- For tables with shared/tied ranks or merged cells, repeat the value in all rows that share it (don't leave cells empty)
+"""
+
+        print("\nCalling API with 'qwenvl markdown' prompt (enhanced for OpenRouter)...")
+        markdown_output_raw = call_qwen_markdown_api(test_image, prompt=enhanced_prompt)
 
         print("\n" + "-" * 80)
-        print("Markdown Response Preview:")
+        print("RAW Markdown Response (before cleaning):")
         print("-" * 80)
+        # Save raw output for inspection
+        output_raw = Path("output") / f"{input_name}_qwen_raw_response.txt"
+        output_raw.write_text(markdown_output_raw, encoding='utf-8')
+        print(f"  Saved raw response to: {output_raw}")
         # Handle Unicode characters in preview
         try:
             print(markdown_output_raw[:1500])
@@ -447,6 +463,34 @@ def main(image_path: str = None):
             print(f"  {i}. {elem['type']} - bbox: {elem['bbox']}")
         if not elements:
             print("  No coordinate annotations found in markdown!")
+
+        # Extract and save cropped images/tables
+        if elements:
+            print("\n" + "-" * 80)
+            print("Extracting Images/Tables:")
+            print("-" * 80)
+
+            # Load original image
+            with Image.open(test_image) as img:
+                width, height = img.size
+
+                for i, elem in enumerate(elements, 1):
+                    elem_type = elem['type']
+                    bbox = elem['bbox']
+
+                    # Convert 0-1000 coordinates to pixels
+                    px1, py1, px2, py2 = convert_bbox_to_pixels(bbox, width, height)
+
+                    # Crop the region
+                    cropped = img.crop((px1, py1, px2, py2))
+
+                    # Save cropped image
+                    output_crop = Path("output") / f"{input_name}_{elem_type.lower()}_{i}.png"
+                    cropped.save(output_crop)
+
+                    crop_width = px2 - px1
+                    crop_height = py2 - py1
+                    print(f"  {i}. Extracted {elem_type} ({crop_width}x{crop_height}) -> {output_crop.name}")
 
         # Summary
         print("\n" + "=" * 80)
