@@ -216,8 +216,8 @@ def main():
 
         print(f"\nDocument Quality Breakdown:")
         print(f"  - 100% accurate: {perfect_docs}/{len(successful_results)} documents")
-        print(f"  - ≥90% accurate: {high_acc_docs}/{len(successful_results)} documents")
-        print(f"  - ≥70% accurate: {good_acc_docs}/{len(successful_results)} documents")
+        print(f"  - >=90% accurate: {high_acc_docs}/{len(successful_results)} documents")
+        print(f"  - >=70% accurate: {good_acc_docs}/{len(successful_results)} documents")
 
         print(f"\nTiming:")
         print(f"  - QwenVL: {avg_qwen_time:.2f}s per document")
@@ -234,7 +234,7 @@ def main():
         print(f"  - GPT-4o (baseline): ~75%")
         print(f"  - Our pipeline: {avg_accuracy:.1f}%")
         if avg_accuracy > 75:
-            print(f"  - Difference: +{avg_accuracy - 75:.1f}% ✅")
+            print(f"  - Difference: +{avg_accuracy - 75:.1f}% [BETTER]")
         else:
             print(f"  - Difference: {avg_accuracy - 75:.1f}%")
 
