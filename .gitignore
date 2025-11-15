@@ -48,6 +48,8 @@ htmlcov/
 # Project specific
 outputs/
 output/
+*_outputs/
+baseline_outputs/
 test_document.png
 *.png
 *.jpg
