@@ -193,7 +193,7 @@ def parse_markdown_bboxes(markdown_content: str) -> list[dict]:
     """
     Parse markdown and extract coordinate comments.
 
-    Format: <!-- Image (x1, y1, x2, y2) --> or <!-- Table (x1, y1, x2, y2) -->
+    Format: <!-- Image (x1, y1, x2, y2) --> or <!-- Table (x1, y1, x2, y2) --> or <!-- Paragraph (x1, y1, x2, y2) -->
 
     Args:
         markdown_content: Markdown string with coordinate comments
@@ -201,7 +201,8 @@ def parse_markdown_bboxes(markdown_content: str) -> list[dict]:
     Returns:
         List of dicts with element info: {type, bbox}
     """
-    pattern = r"<!-- (Image|Table) \(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\) -->"
+    # Only parse the element types we care about
+    pattern = r"<!-- (Image|Table|Chart|Signature|Handwritten|Paragraph) \(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\) -->"
     matches = re.findall(pattern, markdown_content)
 
     elements = []
@@ -248,7 +249,13 @@ def visualize_markdown_bboxes(image_path: str, markdown_content: str, output_pat
     # Draw bounding boxes
     colors = {
         'Image': 'blue',
-        'Table': 'red'
+        'Table': 'red',
+        'Chart': 'cyan',
+        'Signature': 'magenta',
+        'Handwritten': 'yellow',
+        'Paragraph': 'green',
+        'Heading': 'purple',
+        'Text': 'orange'
     }
 
     for elem in elements:
@@ -410,15 +417,26 @@ def main(image_path: str = None):
         print("=" * 80)
 
         # Enhanced prompt to explicitly request LaTeX tables with coordinates
-        # This is needed for OpenRouter API to match Dashscope's "qwenvl markdown" format
+        # Only request coordinates for non-text elements (images, tables, charts, signatures, handwritten)
         enhanced_prompt = """qwenvl markdown
 
 Convert this document to markdown format with the following requirements:
+- Extract ALL text content as markdown in natural reading order (top to bottom, left to right)
 - Represent all tables in LaTeX format using \\begin{tabular} and \\end{tabular}
-- Add coordinate annotations before each table using HTML comments: <!-- Table (x1, y1, x2, y2) -->
-- Add coordinate annotations for images: <!-- Image (x1, y1, x2, y2) -->
-- Coordinates should be in 0-1000 scale relative to image dimensions
-- For tables with shared/tied ranks or merged cells, repeat the value in all rows that share it (don't leave cells empty)
+- Add coordinate annotations ONLY for these special elements using HTML comments (0-1000 scale):
+  - Tables: <!-- Table (x1, y1, x2, y2) --> followed by the table content
+  - Images: <!-- Image (x1, y1, x2, y2) --> followed by image description
+  - Charts/Graphs: <!-- Chart (x1, y1, x2, y2) --> followed by chart description
+  - Signatures: <!-- Signature (x1, y1, x2, y2) --> followed by the signature text/name
+  - Handwritten text/notes/stamps: <!-- Handwritten (x1, y1, x2, y2) --> followed by the handwritten text
+- CRITICAL: Place each coordinate annotation immediately BEFORE its content at the correct position in reading order
+- The signature annotation must appear where the signature actually appears in the document, not at the top
+- Do NOT add coordinate annotations for regular typed text, paragraphs, or headings
+- IMPORTANT: Identify and annotate ALL handwritten elements including stamps, signatures, and handwritten notes
+- For tables with shared/tied ranks or merged cells, repeat the value in all rows that share it
+- Maintain spatial/positional order of all elements in the output
+
+Example: If signature appears at bottom of document, place the annotation there in proper position
 """
 
         print("\nCalling API with 'qwenvl markdown' prompt (enhanced for OpenRouter)...")
@@ -464,18 +482,29 @@ Convert this document to markdown format with the following requirements:
         if not elements:
             print("  No coordinate annotations found in markdown!")
 
-        # Extract and save cropped images/tables
-        if elements:
+        # Extract and save cropped images/tables/signatures/charts only
+        # Filter for specific element types we want to extract
+        extract_types = {'Image', 'Table', 'Chart', 'Signature', 'Handwritten'}
+        elements_to_extract = [elem for elem in elements if elem['type'] in extract_types]
+
+        if elements_to_extract:
             print("\n" + "-" * 80)
-            print("Extracting Images/Tables:")
+            print("Extracting Images/Tables/Charts/Signatures/Handwritten:")
             print("-" * 80)
 
             # Load original image
             with Image.open(test_image) as img:
                 width, height = img.size
 
+                extract_count = 0
                 for i, elem in enumerate(elements, 1):
                     elem_type = elem['type']
+
+                    # Skip if not in extract types
+                    if elem_type not in extract_types:
+                        continue
+
+                    extract_count += 1
                     bbox = elem['bbox']
 
                     # Convert 0-1000 coordinates to pixels
@@ -485,12 +514,17 @@ Convert this document to markdown format with the following requirements:
                     cropped = img.crop((px1, py1, px2, py2))
 
                     # Save cropped image
-                    output_crop = Path("output") / f"{input_name}_{elem_type.lower()}_{i}.png"
+                    output_crop = Path("output") / f"{input_name}_{elem_type.lower()}_{extract_count}.png"
                     cropped.save(output_crop)
 
                     crop_width = px2 - px1
                     crop_height = py2 - py1
-                    print(f"  {i}. Extracted {elem_type} ({crop_width}x{crop_height}) -> {output_crop.name}")
+                    print(f"  {extract_count}. Extracted {elem_type} ({crop_width}x{crop_height}) -> {output_crop.name}")
+
+            if extract_count == 0:
+                print("  No extractable elements (Image/Table/Chart/Signature/Handwritten) found!")
+        else:
+            print("\n  No extractable elements (Image/Table/Chart/Signature/Handwritten) found!")
 
         # Summary
         print("\n" + "=" * 80)
