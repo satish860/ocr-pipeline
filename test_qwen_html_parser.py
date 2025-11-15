@@ -216,6 +216,88 @@ def parse_markdown_bboxes(markdown_content: str) -> list[dict]:
     return elements
 
 
+def detect_alignment(x1: int, x2: int, width: int = 1000) -> str:
+    """
+    Detect text alignment based on bounding box x-coordinates.
+
+    Args:
+        x1: Left x-coordinate (0-1000 scale)
+        x2: Right x-coordinate (0-1000 scale)
+        width: Total width (default 1000 for 0-1000 scale)
+
+    Returns:
+        'left', 'center', or 'right'
+    """
+    center_x = (x1 + x2) / 2
+
+    # Right-aligned: center is in right third
+    if center_x > width * 0.66:
+        return 'right'
+    # Center-aligned: center is in middle third
+    elif center_x > width * 0.33:
+        return 'center'
+    # Left-aligned: center is in left third
+    else:
+        return 'left'
+
+
+def add_alignment_to_markdown(markdown_content: str) -> str:
+    """
+    Post-process markdown to add HTML alignment tags based on coordinate annotations.
+
+    Args:
+        markdown_content: Markdown with coordinate annotations
+
+    Returns:
+        Markdown with HTML alignment tags added
+    """
+    lines = markdown_content.split('\n')
+    result_lines = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        # Check if this line is a coordinate annotation
+        match = re.match(r'<!-- (Image|Table|Chart|Signature|Handwritten) \((\d+), (\d+), (\d+), (\d+)\) -->', line)
+
+        if match:
+            elem_type, x1, x2, y1, y2 = match.groups()
+            x1, x2 = int(x1), int(x2)
+
+            # Detect alignment
+            alignment = detect_alignment(x1, x2)
+
+            # Add the coordinate comment
+            result_lines.append(line)
+            i += 1
+
+            # Collect lines until next coordinate annotation or empty line
+            content_lines = []
+            while i < len(lines) and lines[i].strip() and not lines[i].startswith('<!--'):
+                content_lines.append(lines[i])
+                i += 1
+
+            # Wrap content with alignment if not left-aligned
+            if content_lines:
+                if alignment == 'right':
+                    result_lines.append('<div align="right">')
+                    result_lines.extend(content_lines)
+                    result_lines.append('</div>')
+                elif alignment == 'center':
+                    result_lines.append('<div align="center">')
+                    result_lines.extend(content_lines)
+                    result_lines.append('</div>')
+                else:
+                    # Left-aligned, no tags needed
+                    result_lines.extend(content_lines)
+        else:
+            result_lines.append(line)
+            i += 1
+
+    return '\n'.join(result_lines)
+
+
 def visualize_markdown_bboxes(image_path: str, markdown_content: str, output_path: str = None):
     """
     Visualize bounding boxes from markdown coordinate comments.
@@ -422,6 +504,11 @@ def main(image_path: str = None):
 
 Convert this document to markdown format with the following requirements:
 - Extract ALL text content as markdown in natural reading order (top to bottom, left to right)
+- Preserve text alignment using HTML tags:
+  - Right-aligned text: <div align="right">text</div>
+  - Center-aligned text: <div align="center">text</div>
+  - Left-aligned text: no tags needed (default)
+- Use <br> tags for line breaks within aligned sections
 - Represent all tables in LaTeX format using \\begin{tabular} and \\end{tabular}
 - Add coordinate annotations ONLY for these special elements using HTML comments (0-1000 scale):
   - Tables: <!-- Table (x1, y1, x2, y2) --> followed by the table content
@@ -435,8 +522,7 @@ Convert this document to markdown format with the following requirements:
 - IMPORTANT: Identify and annotate ALL handwritten elements including stamps, signatures, and handwritten notes
 - For tables with shared/tied ranks or merged cells, repeat the value in all rows that share it
 - Maintain spatial/positional order of all elements in the output
-
-Example: If signature appears at bottom of document, place the annotation there in proper position
+- Detect the horizontal position of text and apply appropriate alignment (right/center/left)
 """
 
         print("\nCalling API with 'qwenvl markdown' prompt (enhanced for OpenRouter)...")
@@ -466,10 +552,21 @@ Example: If signature appears at bottom of document, place the annotation there 
         print(f"  Removed code fence wrappers")
         print(f"  Clean length: {len(markdown_output)} chars")
 
+        # Add alignment tags based on coordinates (only if model didn't add them)
+        print("\n" + "-" * 80)
+        print("Adding Alignment Tags:")
+        print("-" * 80)
+        if '<div align=' in markdown_output:
+            print(f"  Model already added alignment tags - skipping post-processing")
+        else:
+            markdown_output = add_alignment_to_markdown(markdown_output)
+            print(f"  Analyzed coordinates and added HTML alignment tags")
+        print(f"  Final length: {len(markdown_output)} chars")
+
         # Save original Markdown
         output_md = Path("output") / f"{input_name}_qwen_markdown_output.md"
         output_md.write_text(markdown_output, encoding='utf-8')
-        print(f"  Saved clean markdown to: {output_md}")
+        print(f"  Saved markdown with alignment to: {output_md}")
 
         # Parse Markdown coordinate annotations (no visualization)
         print("\n" + "-" * 80)
