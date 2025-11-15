@@ -23,11 +23,11 @@ Input Image → QwenVL (markdown + base64) → Claude Sonnet 4.5 (JSON extractio
 |-------|--------|----------------|------|
 | **Phase 1**: Dataset Integration | ✅ COMPLETE | 2025-11-15 | $0 |
 | **Phase 2**: QwenVL Baseline | ✅ COMPLETE | 2025-11-15 | ~$0.00 |
-| **Phase 3**: Claude JSON Extraction | ⏳ Pending | - | ~$1.00-$3.00 |
+| **Phase 3**: Claude JSON Extraction | ✅ COMPLETE | 2025-11-15 | ~$0.10 |
 | **Phase 4**: Evaluation Metrics | ⏳ Pending | - | ~$2.00-$5.00 |
 | **Phase 5**: Category Analysis | ⏳ Pending | - | ~$5.00-$200.00 |
 
-**Total Cost So Far**: ~$0.00
+**Total Cost So Far**: ~$0.10
 
 ---
 
@@ -215,10 +215,38 @@ uv run python test_claude_extraction.py
 **~$1.00 - $3.00** for 5 samples (QwenVL + Claude)
 
 ### Deliverables
-- [ ] `benchmark/claude_extractor.py`
-- [ ] `scripts/test_claude_extraction.py`
-- [ ] Updated `.env.example` with `ANTHROPIC_API_KEY`
-- [ ] Cost estimate for Claude extraction
+- [x] `benchmark/claude_extractor.py`
+- [x] `scripts/test_claude_extraction.py`
+- [ ] Updated `.env.example` with `ANTHROPIC_API_KEY` (using existing OPENROUTER_API_KEY)
+- [x] Cost estimate for Claude extraction
+
+### Completion Notes
+- **Status**: ✅ COMPLETE
+- **Date**: 2025-11-15
+- **Samples Tested**: 5 random samples (PETITION_FORM x2, PHOTO_NUTRITION, SHIFT_SCHEDULE, COMMERCIAL_LEASE_AGREEMENT)
+- **Key Findings**:
+  - Success rate: 5/5 (100%)
+  - Average accuracy: 80% (field-level comparison with ground truth)
+  - Average processing time: 37.67s (27.61s QwenVL + 10.06s Claude)
+  - Average cost: $0.019 per document
+  - Projected 1,000 samples: $18.84
+  - Cache performance: 0% (cache not triggering - needs investigation)
+- **Accuracy Breakdown**:
+  - PETITION_FORM #1: 50% (handwritten signature OCR differences)
+  - PETITION_FORM #2: 75% (minor name variations)
+  - PHOTO_NUTRITION: 100% ✅
+  - SHIFT_SCHEDULE: 75% (date format mismatch)
+  - COMMERCIAL_LEASE: 100% ✅
+- **Implementation Details**:
+  - Using Claude Haiku 4.5 via OpenRouter (OpenAI-compatible API format)
+  - System message includes JSON schema (string format, not content blocks)
+  - Vision support: Sends extracted images + markdown text
+  - Updated prompt to prioritize reading from images over markdown
+  - Error handling with detailed HTTP error responses
+- **Common Issues**:
+  - Minor OCR variations in handwritten names and addresses
+  - Date format inconsistencies (text format vs ISO format)
+  - Cache control not working via OpenRouter (may need native Anthropic API)
 
 ---
 
