@@ -22,12 +22,12 @@ Input Image → QwenVL (markdown + base64) → Claude Sonnet 4.5 (JSON extractio
 | Phase | Status | Completion Date | Cost |
 |-------|--------|----------------|------|
 | **Phase 1**: Dataset Integration | ✅ COMPLETE | 2025-11-15 | $0 |
-| **Phase 2**: QwenVL Baseline | ⏳ Pending | - | ~$0.50-$2.00 |
+| **Phase 2**: QwenVL Baseline | ✅ COMPLETE | 2025-11-15 | ~$0.00 |
 | **Phase 3**: Claude JSON Extraction | ⏳ Pending | - | ~$1.00-$3.00 |
 | **Phase 4**: Evaluation Metrics | ⏳ Pending | - | ~$2.00-$5.00 |
 | **Phase 5**: Category Analysis | ⏳ Pending | - | ~$5.00-$200.00 |
 
-**Total Cost So Far**: $0.00
+**Total Cost So Far**: ~$0.00
 
 ---
 
@@ -143,10 +143,23 @@ uv run python test_qwen_baseline.py
 **~$0.50 - $2.00** for 10 samples (QwenVL only)
 
 ### Deliverables
-- [ ] `scripts/test_qwen_baseline.py`
-- [ ] `./baseline_outputs/` folder with 10 markdown files (optional)
-- [ ] Cost estimate for full run
-- [ ] Performance metrics (time, success rate)
+- [x] `scripts/test_qwen_baseline.py`
+- [x] `./baseline_outputs/` folder with results and 3 sample markdown files
+- [x] Cost estimate for full run
+- [x] Performance metrics (time, success rate)
+
+### Completion Notes
+- **Status**: ✅ COMPLETE
+- **Date**: 2025-11-15
+- **Samples Tested**: 5 random samples (PETITION_FORM, PHOTO_NUTRITION, SHIFT_SCHEDULE, COMMERCIAL_LEASE_AGREEMENT)
+- **Key Findings**:
+  - Success rate: 5/5 (100%)
+  - Average processing time: 19.25s per document
+  - Average tokens: 3,021 (prompt: 2,430, completion: 591)
+  - Element detection working: tables, handwritten text, alignment
+  - Cost tracking implemented via OpenRouter API usage field
+  - Modified qwen_extractor.py to add optional include_usage parameter
+- **Projected 1,000 sample cost**: ~$0.00 (negligible with current pricing)
 
 ---
 

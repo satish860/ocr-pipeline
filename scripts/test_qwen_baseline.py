@@ -194,19 +194,14 @@ def main():
         json.dump(summary, f, indent=2)
     print(f"  [OK] Saved summary: {json_path}")
 
-    # Save 2-3 markdown files for manual inspection
+    # Save 2-3 markdown files for manual inspection (raw markdown only)
     num_to_save = min(3, len(successful_results))
 
     for i in range(num_to_save):
         r = successful_results[i]
         md_path = output_dir / f"sample_{r['sample_id']}_{r['format']}.md"
         with open(md_path, 'w', encoding='utf-8') as f:
-            f.write(f"# Sample {r['sample_id']} - {r['format']}\n\n")
-            f.write(f"**Processing Time:** {r['processing_time']:.2f}s\n")
-            f.write(f"**Cost:** ${r['cost_dollars']:.6f}\n")
-            f.write(f"**Elements:** {r['element_count']}\n")
-            f.write(f"**Images:** {r['image_count']}\n\n")
-            f.write("---\n\n")
+            # Save only the raw markdown output from the pipeline
             f.write(r['markdown'])
         print(f"  [OK] Saved markdown: {md_path}")
 
