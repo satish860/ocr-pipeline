@@ -447,21 +447,22 @@ def visualize_all_elements(image_path: str, elements: list, output_path: str = N
         image.show()
 
 
-def main(image_path: str = None):
+def main(image_path: str = None, clear_output: bool = True):
     """
     Main test function - tests Markdown format with table conversion.
 
     Args:
         image_path: Optional path to specific image. If None, uses first image in input/
+        clear_output: Whether to clear the output folder before processing (default: True)
     """
     print("=" * 80)
     print("QwenVL Document Parsing Test - via OpenRouter")
     print("Testing 'qwenvl markdown' format")
     print("=" * 80)
 
-    # Clear output folder
+    # Clear output folder (only if requested)
     output_dir = Path("output")
-    if output_dir.exists():
+    if clear_output and output_dir.exists():
         import shutil
         shutil.rmtree(output_dir)
         print("\nCleared output folder")

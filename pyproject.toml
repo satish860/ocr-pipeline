@@ -1,26 +1,13 @@
 [project]
 name = "ocr-pipeline"
-version = "0.1.0"
-description = "OCR pipeline using QwenVL for layout detection and Mistral AI for text extraction"
+version = "0.2.0"
+description = "Simplified OCR pipeline using QwenVL for single-stage document extraction"
 requires-python = ">=3.12"
 dependencies = [
-    "beautifulsoup4>=4.14.2",
-    "fastapi>=0.115.0",
-    "numpy>=1.24.0",
-    "opencv-python>=4.8.0",
-    "openai>=2.7.1",
     "pillow>=10.0.0",
-    "pymupdf>=1.24.0",
+    "openai>=2.7.1",
     "python-dotenv>=1.0.0",
-    "python-multipart>=0.0.9",
-    "uvicorn>=0.32.0",
-    "pytesseract>=0.3.13",
-    "datasets>=4.4.1",
-    "python-levenshtein>=0.27.3",
-    "google-generativeai>=0.8.5",
-    "pandas>=2.3.3",
-    "matplotlib>=3.10.7",
-    "seaborn>=0.13.2",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]

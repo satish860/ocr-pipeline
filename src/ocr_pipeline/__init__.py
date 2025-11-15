@@ -1,3 +1,10 @@
-"""OCR Pipeline - QwenVL + Mistral AI via OpenRouter"""
+"""OCR Pipeline - QwenVL Document Extraction via OpenRouter"""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+from .qwen_extractor import extract_document
+
+__all__ = [
+    "extract_document",
+    "__version__"
+]
