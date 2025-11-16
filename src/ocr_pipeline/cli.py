@@ -1,18 +1,24 @@
 """Command-line interface for OCR Pipeline"""
 
 import sys
+import argparse
 from pathlib import Path
 
 from .qwen_extractor import extract_document
 
 
-def process_image(image_path: str, include_images: bool = True) -> dict:
+def process_image(
+    image_path: str,
+    include_images: bool = True,
+    convert_tables_to_html: bool = False
+) -> dict:
     """
     Process a single image through the QwenVL extraction pipeline.
 
     Args:
         image_path: Path to the image file
         include_images: Whether to extract and embed images (default: True)
+        convert_tables_to_html: Whether to convert LaTeX tables to HTML using Gemini 2.5 Flash
 
     Returns:
         Result dictionary from extract_document() with:
@@ -27,32 +33,59 @@ def process_image(image_path: str, include_images: bool = True) -> dict:
         return {'success': False, 'error': 'File not found', 'markdown': '', 'images': [], 'elements': []}
 
     # Extract document
-    result = extract_document(image_path, include_images=include_images)
+    result = extract_document(
+        image_path,
+        include_images=include_images,
+        convert_tables_to_html=convert_tables_to_html
+    )
 
     return result
 
 
 def main():
     """Main entry point for the CLI"""
-    if len(sys.argv) < 2:
-        print("OCR Pipeline - QwenVL Document Extraction")
-        print("\nUsage:")
-        print("  python -m ocr_pipeline.cli <image_path>")
-        print("\nExample:")
-        print("  python -m ocr_pipeline.cli input/document.png")
-        print("\nReturns:")
-        print("  JSON result with markdown, images, and elements")
-        return 1
+    parser = argparse.ArgumentParser(
+        description='OCR Pipeline - QwenVL Document Extraction',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m ocr_pipeline.cli document.png
+  python -m ocr_pipeline.cli document.png --html-tables
+  python -m ocr_pipeline.cli invoice.png --html-tables
 
-    image_path = sys.argv[1]
+Features:
+  --html-tables: Converts detected tables from LaTeX to HTML using Gemini 2.5 Flash
+                 This improves accuracy by using both the table image and LaTeX
+                 as input to generate clean, structured HTML tables.
+        """
+    )
+
+    parser.add_argument(
+        'image',
+        type=str,
+        help='Path to the image file to process'
+    )
+
+    parser.add_argument(
+        '--html-tables',
+        action='store_true',
+        help='Convert tables to HTML using Gemini 2.5 Flash (improves accuracy)'
+    )
+
+    args = parser.parse_args()
 
     print("=" * 80)
     print("OCR Pipeline - QwenVL Document Extraction")
     print("=" * 80)
-    print(f"\nProcessing: {image_path}")
+    print(f"\nProcessing: {args.image}")
+    if args.html_tables:
+        print("Table conversion: Enabled (LaTeX → HTML via Gemini 2.5 Flash)")
     print("\nCalling QwenVL API...")
 
-    result = process_image(image_path)
+    result = process_image(
+        args.image,
+        convert_tables_to_html=args.html_tables
+    )
 
     if not result['success']:
         print(f"\nError: {result['error']}")
