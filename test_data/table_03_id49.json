@@ -1,0 +1,59 @@
+{
+  "id": 49,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "models": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "f1": {
+              "type": "number",
+              "description": ""
+            },
+            "name": {
+              "type": "string",
+              "description": ""
+            },
+            "recall": {
+              "type": "number",
+              "description": ""
+            },
+            "precision": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "models": [
+      {
+        "f1": 18.95,
+        "name": "Pipeline",
+        "recall": 22.11,
+        "precision": 16.58
+      },
+      {
+        "f1": 29.69,
+        "name": "Traversal",
+        "recall": 38.74,
+        "precision": 24.06
+      },
+      {
+        "f1": 35.92,
+        "name": "Multi-task",
+        "recall": 30.57,
+        "precision": 43.54
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

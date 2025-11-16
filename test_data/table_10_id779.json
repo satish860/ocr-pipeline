@@ -1,0 +1,190 @@
+{
+  "id": 779,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "fc": {
+        "type": "object",
+        "properties": {
+          "di": {
+            "type": "number"
+          },
+          "fc": {
+            "type": "number"
+          },
+          "ic": {
+            "type": "number"
+          },
+          "mb": {
+            "type": "number"
+          },
+          "inr": {
+            "type": "number"
+          },
+          "lev": {
+            "type": "number"
+          },
+          "roa": {
+            "type": "number"
+          },
+          "tan": {
+            "type": "number"
+          },
+          "log_size": {
+            "type": "number"
+          }
+        },
+        "description": ""
+      },
+      "ic": {
+        "type": "object",
+        "properties": {
+          "di": {
+            "type": "number"
+          },
+          "fc": {
+            "type": "number"
+          },
+          "ic": {
+            "type": "number"
+          },
+          "mb": {
+            "type": "number"
+          },
+          "inr": {
+            "type": "number"
+          },
+          "lev": {
+            "type": "number"
+          },
+          "roa": {
+            "type": "number"
+          },
+          "tan": {
+            "type": "number"
+          },
+          "log_size": {
+            "type": "number"
+          }
+        },
+        "description": ""
+      },
+      "mb": {
+        "type": "object",
+        "properties": {
+          "di": {
+            "type": "number"
+          },
+          "fc": {
+            "type": "number"
+          },
+          "ic": {
+            "type": "number"
+          },
+          "mb": {
+            "type": "number"
+          },
+          "inr": {
+            "type": "number"
+          },
+          "lev": {
+            "type": "number"
+          },
+          "roa": {
+            "type": "number"
+          },
+          "tan": {
+            "type": "number"
+          },
+          "log_size": {
+            "type": "number"
+          }
+        },
+        "description": ""
+      },
+      "inr": {
+        "type": "object",
+        "properties": {
+          "di": {
+            "type": "number"
+          },
+          "fc": {
+            "type": "number"
+          },
+          "ic": {
+            "type": "number"
+          },
+          "mb": {
+            "type": "number"
+          },
+          "inr": {
+            "type": "number"
+          },
+          "lev": {
+            "type": "number"
+          },
+          "roa": {
+            "type": "number"
+          },
+          "tan": {
+            "type": "number"
+          },
+          "log_size": {
+            "type": "number"
+          }
+        },
+        "description": ""
+      }
+    }
+  },
+  "json_gt": {
+    "fc": {
+      "di": -0.519,
+      "fc": 1,
+      "ic": -0.286,
+      "mb": -0.139,
+      "inr": -0.204,
+      "lev": 0.359,
+      "roa": -0.484,
+      "tan": -0.271,
+      "log_size": 0.178
+    },
+    "ic": {
+      "di": 0.219,
+      "fc": -0.286,
+      "ic": 1,
+      "mb": 0.222,
+      "inr": -0.014,
+      "lev": 0.035,
+      "roa": 0.447,
+      "tan": 0.122,
+      "log_size": 0.129
+    },
+    "mb": {
+      "di": 0.168,
+      "fc": -0.139,
+      "ic": 0.222,
+      "mb": 1,
+      "inr": 0.272,
+      "lev": -0.266,
+      "roa": -0.114,
+      "tan": -0.045,
+      "log_size": -0.301
+    },
+    "inr": {
+      "di": 0.161,
+      "fc": -0.204,
+      "ic": -0.014,
+      "mb": 0.272,
+      "inr": 1,
+      "lev": -0.23,
+      "roa": 0.201,
+      "tan": -0.104,
+      "log_size": -0.168
+    }
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

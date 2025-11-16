@@ -1,0 +1,297 @@
+{
+  "id": 4,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "table": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "max": {
+              "type": "number",
+              "description": ""
+            },
+            "name": {
+              "type": "string",
+              "description": ""
+            },
+            "25_perc": {
+              "type": "number",
+              "description": ""
+            },
+            "50_perc": {
+              "type": "number",
+              "description": ""
+            },
+            "75_perc": {
+              "type": "number",
+              "description": ""
+            },
+            "studies": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "table": [
+      {
+        "max": 1242071,
+        "name": "Total",
+        "25_perc": 44,
+        "50_perc": 91,
+        "75_perc": 210,
+        "studies": 112600
+      },
+      {
+        "max": 1242071,
+        "name": "Dichotomous",
+        "25_perc": 50,
+        "50_perc": 102,
+        "75_perc": 243,
+        "studies": 77237
+      },
+      {
+        "max": 18851,
+        "name": "Continuous",
+        "25_perc": 33,
+        "50_perc": 62,
+        "75_perc": 142,
+        "studies": 29902
+      },
+      {
+        "max": 36511,
+        "name": "Mixed",
+        "25_perc": 21,
+        "50_perc": 86,
+        "75_perc": 251,
+        "studies": 5461
+      },
+      {
+        "max": 266064,
+        "name": "Cancer",
+        "25_perc": 72,
+        "50_perc": 154,
+        "75_perc": 326,
+        "studies": 6441
+      },
+      {
+        "max": 67800,
+        "name": "Cardiovascular",
+        "25_perc": 44,
+        "50_perc": 102,
+        "75_perc": 289,
+        "studies": 10686
+      },
+      {
+        "max": 9440,
+        "name": "Central nervous system/musculoskeletal",
+        "25_perc": 43,
+        "50_perc": 80,
+        "75_perc": 149,
+        "studies": 8299
+      },
+      {
+        "max": 18819,
+        "name": "Digestive/endocr., nutritional and metabolic",
+        "25_perc": 42,
+        "50_perc": 79,
+        "75_perc": 160,
+        "studies": 15345
+      },
+      {
+        "max": 23697,
+        "name": "Gynaecology, pregnancy and birth",
+        "25_perc": 60,
+        "50_perc": 118,
+        "75_perc": 293,
+        "studies": 20098
+      },
+      {
+        "max": 419748,
+        "name": "Infectious diseases",
+        "25_perc": 59,
+        "50_perc": 130,
+        "75_perc": 371,
+        "studies": 4502
+      },
+      {
+        "max": 9020,
+        "name": "Mental health and behavioural conditions",
+        "25_perc": 36,
+        "50_perc": 63,
+        "75_perc": 165,
+        "studies": 15218
+      },
+      {
+        "max": 2463,
+        "name": "Pathological conditions, symptoms and signs",
+        "25_perc": 40,
+        "50_perc": 61,
+        "75_perc": 115,
+        "studies": 4448
+      },
+      {
+        "max": 82892,
+        "name": "Respiratory diseases",
+        "25_perc": 36,
+        "50_perc": 87,
+        "75_perc": 227,
+        "studies": 13153
+      },
+      {
+        "max": 4912,
+        "name": "Urogenital",
+        "25_perc": 39,
+        "50_perc": 71,
+        "75_perc": 153,
+        "studies": 5914
+      },
+      {
+        "max": 1242071,
+        "name": "Other",
+        "25_perc": 44,
+        "50_perc": 90,
+        "75_perc": 198,
+        "studies": 8496
+      },
+      {
+        "max": 58050,
+        "name": "Pharm. vs. Control/Placebo",
+        "25_perc": 41,
+        "50_perc": 90,
+        "75_perc": 222,
+        "studies": 44156
+      },
+      {
+        "max": 25180,
+        "name": "Pharm. vs. Pharm.",
+        "25_perc": 48,
+        "50_perc": 99,
+        "75_perc": 222,
+        "studies": 28018
+      },
+      {
+        "max": 7711,
+        "name": "Pharm. vs. Non-Pharm.",
+        "25_perc": 50,
+        "50_perc": 74,
+        "75_perc": 135,
+        "studies": 2018
+      },
+      {
+        "max": 1242071,
+        "name": "Non-Pharm. vs. Control/Placebo",
+        "25_perc": 41,
+        "50_perc": 92,
+        "75_perc": 229,
+        "studies": 20892
+      },
+      {
+        "max": 82892,
+        "name": "Non-Pharm. vs. Non-Pharm.",
+        "25_perc": 45,
+        "50_perc": 85,
+        "75_perc": 169,
+        "studies": 17516
+      },
+      {
+        "max": 359600,
+        "name": "Signs/symptoms reflecting continuation/end of condition",
+        "25_perc": 42,
+        "50_perc": 83,
+        "75_perc": 197,
+        "studies": 17621
+      },
+      {
+        "max": 82892,
+        "name": "Adverse events",
+        "25_perc": 49,
+        "50_perc": 100,
+        "75_perc": 242,
+        "studies": 11898
+      },
+      {
+        "max": 1242071,
+        "name": "Infection/event of new acute/chronic disease",
+        "25_perc": 56,
+        "50_perc": 110,
+        "75_perc": 258,
+        "studies": 11284
+      },
+      {
+        "max": 1242071,
+        "name": "Biological markers",
+        "25_perc": 56,
+        "50_perc": 110,
+        "75_perc": 258,
+        "studies": 10158
+      },
+      {
+        "max": 131271,
+        "name": "General physical health",
+        "25_perc": 30,
+        "50_perc": 66,
+        "75_perc": 177,
+        "studies": 8959
+      },
+      {
+        "max": 18453,
+        "name": "Obstetric outcomes",
+        "25_perc": 60,
+        "50_perc": 117,
+        "75_perc": 293,
+        "studies": 7376
+      },
+      {
+        "max": 259627,
+        "name": "All-cause mortality",
+        "25_perc": 52,
+        "50_perc": 110,
+        "75_perc": 281,
+        "studies": 8302
+      },
+      {
+        "max": 419748,
+        "name": "Resource use/hospital stay/process",
+        "25_perc": 50,
+        "50_perc": 98,
+        "75_perc": 200,
+        "studies": 5454
+      },
+      {
+        "max": 266064,
+        "name": "Cause-specific mortality/major morbidity event/composite (mortality or morbidity)",
+        "25_perc": 69,
+        "50_perc": 165,
+        "75_perc": 449,
+        "studies": 5413
+      },
+      {
+        "max": 131271,
+        "name": "Other outcomes (semi-objective)",
+        "25_perc": 44,
+        "50_perc": 81,
+        "75_perc": 177,
+        "studies": 10886
+      },
+      {
+        "max": 359600,
+        "name": "Other outcomes (subjective)",
+        "25_perc": 38,
+        "50_perc": 71,
+        "75_perc": 162,
+        "studies": 14490
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

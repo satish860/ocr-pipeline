@@ -20,6 +20,23 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Import table HTML converter (conditional to avoid circular imports)
+try:
+    from .table_html_converter import convert_table_to_html
+except ImportError:
+    # Fallback if module not available
+    convert_table_to_html = None
+
+# Import table validator and corrector
+try:
+    from .table_validator import validate_table, extract_latex_from_markdown
+    from .table_corrector import correct_table
+except ImportError:
+    # Fallback if modules not available
+    validate_table = None
+    extract_latex_from_markdown = None
+    correct_table = None
+
 
 def smart_resize(
     height: int,
@@ -343,6 +360,29 @@ def convert_bbox_to_pixels(
     return px1, py1, px2, py2
 
 
+def replace_latex_in_markdown(
+    markdown: str,
+    old_tables: List[str],
+    new_tables: List[str]
+) -> str:
+    """
+    Replace LaTeX tables in markdown in order.
+
+    Args:
+        markdown: Markdown content with LaTeX tables
+        old_tables: List of original LaTeX table strings
+        new_tables: List of corrected LaTeX table strings
+
+    Returns:
+        Updated markdown with corrected tables
+    """
+    result = markdown
+    for old, new in zip(old_tables, new_tables):
+        # Replace first occurrence only (to maintain order)
+        result = result.replace(old, new, 1)
+    return result
+
+
 def extract_images_from_markdown(
     image_path: str,
     markdown_content: str,
@@ -416,7 +456,10 @@ def extract_document(
     min_pixels: int = 512 * 32 * 32,
     max_pixels: int = 2048 * 32 * 32,
     include_images: bool = True,
-    include_usage: bool = False
+    include_usage: bool = False,
+    convert_tables_to_html: bool = False,
+    validate_tables: bool = False,
+    correction_strategy: str = "conservative"
 ) -> Dict:
     """
     Extract document content using QwenVL single-stage pipeline.
@@ -430,6 +473,9 @@ def extract_document(
         max_pixels: Maximum pixels for image resize
         include_images: Whether to extract and embed images
         include_usage: Whether to include usage/cost data in response
+        convert_tables_to_html: Whether to convert LaTeX tables to HTML using Gemini 2.5 Flash
+        validate_tables: Whether to validate and correct LaTeX tables using Gemini 2.5 Flash
+        correction_strategy: Strategy for corrections ("conservative", "auto", "aggressive")
 
     Returns:
         Dict with:
@@ -503,6 +549,53 @@ Convert this document to markdown format with the following requirements:
             markdown_with_images = markdown_clean
             extracted_images = []
 
+        # Convert tables to HTML if requested
+        if convert_tables_to_html and extracted_images:
+            markdown_with_images = replace_latex_tables_with_html(
+                markdown_with_images,
+                extracted_images
+            )
+
+        # Validate and correct tables if requested
+        if validate_tables and extracted_images and validate_table is not None:
+            # Get table images only
+            table_images = [img for img in extracted_images if img['type'] == 'Table']
+
+            if table_images:
+                # Extract LaTeX tables from markdown
+                latex_tables = extract_latex_from_markdown(markdown_with_images)
+
+                # Ensure counts match
+                if len(latex_tables) == len(table_images):
+                    corrected_tables = []
+
+                    for i, latex_table in enumerate(latex_tables):
+                        # Validate
+                        validation_report = validate_table(
+                            table_image_base64=table_images[i]['base64'],
+                            latex_table=latex_table
+                        )
+
+                        # Correct if errors found
+                        if not validation_report['valid'] and not validation_report.get('error'):
+                            correction_result = correct_table(
+                                latex_table=latex_table,
+                                validation_report=validation_report,
+                                table_image_base64=table_images[i]['base64'],
+                                strategy=correction_strategy
+                            )
+                            corrected_tables.append(correction_result['corrected_latex'])
+                        else:
+                            # No errors or validation failed, keep original
+                            corrected_tables.append(latex_table)
+
+                    # Replace LaTeX tables in markdown
+                    markdown_with_images = replace_latex_in_markdown(
+                        markdown_with_images,
+                        latex_tables,
+                        corrected_tables
+                    )
+
         return {
             'success': True,
             'markdown': markdown_with_images,
@@ -521,3 +614,87 @@ Convert this document to markdown format with the following requirements:
             'usage': {},
             'error': str(e)
         }
+
+
+def replace_latex_tables_with_html(
+    markdown: str,
+    extracted_images: List[Dict]
+) -> str:
+    """
+    Replace LaTeX tables with HTML versions using Gemini 2.5 Flash.
+
+    This function finds all table elements in the markdown (identified by
+    <!-- Table (...) --> markers), extracts their LaTeX content, and converts
+    them to clean HTML using the table_html_converter module.
+
+    Args:
+        markdown: Markdown string with LaTeX tables
+        extracted_images: List of extracted images (includes table images with base64 data)
+
+    Returns:
+        Markdown with HTML tables replacing LaTeX tables
+
+    Example:
+        Before:
+            <!-- Table (100, 200, 800, 600) -->
+            \\begin{tabular}{|l|l|}...\\end{tabular}
+
+        After:
+            <!-- Table (100, 200, 800, 600) -->
+            <table><thead>...</thead><tbody>...</tbody></table>
+    """
+    if not convert_table_to_html:
+        # Table converter not available, return unchanged
+        print("Warning: table_html_converter not available, skipping HTML conversion")
+        return markdown
+
+    # Find all table elements
+    table_images = [img for img in extracted_images if img['type'] == 'Table']
+
+    if not table_images:
+        # No tables to convert
+        return markdown
+
+    # Process each table
+    for table_img in table_images:
+        bbox = table_img['bbox']
+        base64_data = table_img['base64']
+
+        # Build pattern to find the table marker
+        # Escape parentheses for regex
+        pattern = f"<!-- Table \\({bbox[0]}, {bbox[1]}, {bbox[2]}, {bbox[3]}\\) -->"
+
+        # Find position of marker in markdown
+        match = re.search(pattern, markdown)
+        if not match:
+            print(f"Warning: Could not find table marker for bbox {bbox}")
+            continue
+
+        # Extract LaTeX content after the marker
+        start_pos = match.end()
+
+        # Find LaTeX table: \begin{tabular}...\end{tabular}
+        # Use DOTALL flag to match across newlines
+        latex_pattern = r'\\begin\{tabular\}.*?\\end\{tabular\}'
+        latex_match = re.search(latex_pattern, markdown[start_pos:], re.DOTALL)
+
+        if latex_match:
+            latex_content = latex_match.group(0)
+
+            try:
+                # Convert to HTML using Gemini 2.5 Flash
+                print(f"Converting table at bbox {bbox} to HTML...")
+                html_table = convert_table_to_html(base64_data, latex_content)
+
+                # Replace LaTeX with HTML in markdown
+                markdown = markdown.replace(latex_content, html_table)
+                print(f"Successfully converted table at bbox {bbox}")
+
+            except Exception as e:
+                # If conversion fails, keep LaTeX (fallback to original)
+                print(f"Warning: Table HTML conversion failed for bbox {bbox}: {e}")
+                continue
+        else:
+            print(f"Warning: Could not find LaTeX content for table at bbox {bbox}")
+
+    return markdown

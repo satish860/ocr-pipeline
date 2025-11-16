@@ -1,0 +1,60 @@
+{
+  "id": 264,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "summary_table": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "not_complete": {
+              "type": "string"
+            },
+            "all_sentences": {
+              "type": "string"
+            },
+            "both_names_in_dictionary": {
+              "type": "string"
+            },
+            "nlpret_detected_both_names": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "summary_table": [
+      {
+        "type": "Type 1",
+        "not_complete": "56/95 (59%)",
+        "all_sentences": "56/225 (25%)",
+        "both_names_in_dictionary": "56/169 (33%)",
+        "nlpret_detected_both_names": "54/137 (41%)"
+      },
+      {
+        "type": "Type 2",
+        "not_complete": "76/95 (80%)",
+        "all_sentences": "76/225 (34%)",
+        "both_names_in_dictionary": "76/169 (45%)",
+        "nlpret_detected_both_names": "76/137 (55%)"
+      },
+      {
+        "type": "Type 3",
+        "not_complete": "90/95 (95%)",
+        "all_sentences": "90/225 (40%)",
+        "both_names_in_dictionary": "90/169 (53%)",
+        "nlpret_detected_both_names": "90/137 (66%)"
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

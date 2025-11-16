@@ -1,0 +1,131 @@
+{
+  "id": 169,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "assets_table": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "year": {
+              "type": "number",
+              "description": ""
+            },
+            "finished_goods": {
+              "type": "number",
+              "description": ""
+            },
+            "prepaid_expense": {
+              "type": "number",
+              "description": ""
+            },
+            "work_in_process": {
+              "type": "number",
+              "description": ""
+            },
+            "total_inventories": {
+              "type": "number",
+              "description": ""
+            },
+            "machinery_equipment": {
+              "type": "number",
+              "description": ""
+            },
+            "other_current_assets": {
+              "type": "number",
+              "description": ""
+            },
+            "deferred_income_taxes": {
+              "type": "number",
+              "description": ""
+            },
+            "land_land_improvements": {
+              "type": "number",
+              "description": ""
+            },
+            "raw_materials_supplies": {
+              "type": "number",
+              "description": ""
+            },
+            "construction_in_progress": {
+              "type": "number",
+              "description": ""
+            },
+            "cost_in_excess_of_billings": {
+              "type": "number",
+              "description": ""
+            },
+            "total_other_current_assets": {
+              "type": "number",
+              "description": ""
+            },
+            "total_other_non_current_assets": {
+              "type": "number",
+              "description": ""
+            },
+            "total_other_current_liabilities": {
+              "type": "number",
+              "description": ""
+            },
+            "total_other_non_current_liabilities": {
+              "type": "number",
+              "description": ""
+            },
+            "total_property_plant_and_equipment_net": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "assets_table": [
+      {
+        "year": 2015,
+        "finished_goods": 492.1,
+        "prepaid_expense": 87.6,
+        "work_in_process": 249.2,
+        "total_inventories": 1174.3,
+        "machinery_equipment": 1287.6,
+        "other_current_assets": 13.6,
+        "deferred_income_taxes": 96.7,
+        "land_land_improvements": 161.9,
+        "raw_materials_supplies": 433,
+        "construction_in_progress": 79.3,
+        "cost_in_excess_of_billings": 114.4,
+        "total_other_current_assets": 312.3,
+        "total_other_non_current_assets": 388.1,
+        "total_other_current_liabilities": 644.1,
+        "total_other_non_current_liabilities": 521,
+        "total_property_plant_and_equipment_net": 942.8
+      },
+      {
+        "year": 2014,
+        "finished_goods": 441.3,
+        "prepaid_expense": 109.6,
+        "work_in_process": 229,
+        "total_inventories": 1130.4,
+        "machinery_equipment": 1169.1,
+        "other_current_assets": 14.3,
+        "deferred_income_taxes": 139.4,
+        "land_land_improvements": 165.1,
+        "raw_materials_supplies": 460.1,
+        "construction_in_progress": 71,
+        "cost_in_excess_of_billings": 103.5,
+        "total_other_current_assets": 366.8,
+        "total_other_non_current_assets": 436.2,
+        "total_other_current_liabilities": 709.1,
+        "total_other_non_current_liabilities": 497.7,
+        "total_property_plant_and_equipment_net": 950
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

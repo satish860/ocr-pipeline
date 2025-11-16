@@ -1,0 +1,128 @@
+{
+  "id": 41,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "woman_cal_in_1948": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "type": "string",
+              "description": ""
+            },
+            "calories": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      },
+      "woman_cal_in_1953": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "age": {
+              "type": "number",
+              "description": ""
+            },
+            "calories": {
+              "type": "number",
+              "description": ""
+            },
+            "height_cm": {
+              "type": "number",
+              "description": ""
+            },
+            "height_in": {
+              "type": "number",
+              "description": ""
+            },
+            "weight_kg": {
+              "type": "number",
+              "description": ""
+            },
+            "weight_lb": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "woman_cal_in_1948": [
+      {
+        "stage": "Sedentary",
+        "calories": 2000
+      },
+      {
+        "stage": "Moderately Active",
+        "calories": 2400
+      },
+      {
+        "stage": "Very Active",
+        "calories": 3000
+      },
+      {
+        "stage": "Pregnancy (Latter Half)",
+        "calories": 2400
+      },
+      {
+        "stage": "Lactation",
+        "calories": 3000
+      }
+    ],
+    "woman_cal_in_1953": [
+      {
+        "age": 25,
+        "calories": 2300,
+        "height_cm": 157,
+        "height_in": 62,
+        "weight_kg": 55,
+        "weight_lb": 121
+      },
+      {
+        "age": 45,
+        "calories": 2100,
+        "height_cm": 157,
+        "height_in": 62,
+        "weight_kg": 55,
+        "weight_lb": 121
+      },
+      {
+        "age": 65,
+        "calories": 1900,
+        "height_cm": 157,
+        "height_in": 62,
+        "weight_kg": 55,
+        "weight_lb": 121
+      },
+      {
+        "age": null,
+        "calories": 2750,
+        "height_cm": null,
+        "height_in": null,
+        "weight_kg": null,
+        "weight_lb": null
+      },
+      {
+        "age": null,
+        "calories": 3300,
+        "height_cm": null,
+        "height_in": null,
+        "weight_kg": null,
+        "weight_lb": null
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

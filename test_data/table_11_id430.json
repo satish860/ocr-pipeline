@@ -1,0 +1,154 @@
+{
+  "id": 430,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "experiments": {
+        "type": "object",
+        "properties": {
+          "n-85": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "3_perc": {
+                  "type": "number",
+                  "description": ""
+                },
+                "7_perc": {
+                  "type": "number",
+                  "description": ""
+                },
+                "10_perc": {
+                  "type": "number",
+                  "description": ""
+                },
+                "control": {
+                  "type": "number",
+                  "description": ""
+                },
+                "perc_applied": {
+                  "type": "string",
+                  "description": ""
+                }
+              },
+              "description": ""
+            }
+          },
+          "wul-100": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "1_perc": {
+                  "type": "number",
+                  "description": ""
+                },
+                "3_perc": {
+                  "type": "number",
+                  "description": ""
+                },
+                "5_perc": {
+                  "type": "number",
+                  "description": ""
+                },
+                "control": {
+                  "type": "number",
+                  "description": ""
+                },
+                "perc_applied": {
+                  "type": "string",
+                  "description": ""
+                }
+              },
+              "description": ""
+            }
+          }
+        },
+        "description": ""
+      }
+    }
+  },
+  "json_gt": {
+    "experiments": {
+      "n-85": [
+        {
+          "3_perc": 1.8,
+          "7_perc": 2,
+          "10_perc": 2,
+          "control": 1.8,
+          "perc_applied": "'TAR', MG/CIGT."
+        },
+        {
+          "3_perc": 0.29,
+          "7_perc": 0.39,
+          "10_perc": 0.51,
+          "control": 0.18,
+          "perc_applied": "NICOTINE, MG/CIGT."
+        },
+        {
+          "3_perc": 2.9,
+          "7_perc": 3,
+          "10_perc": 3.1,
+          "control": 2.9,
+          "perc_applied": "CO, MG/CIGT."
+        },
+        {
+          "3_perc": 6.2,
+          "7_perc": 5.1,
+          "10_perc": 3.9,
+          "control": 10,
+          "perc_applied": "T/N"
+        },
+        {
+          "3_perc": 1420,
+          "7_perc": 1189,
+          "10_perc": 1020,
+          "control": 1744,
+          "perc_applied": "AMES R/MG."
+        }
+      ],
+      "wul-100": [
+        {
+          "1_perc": 5.1,
+          "3_perc": 4.9,
+          "5_perc": 4.9,
+          "control": 4.6,
+          "perc_applied": "'TAR', MG/CIGT."
+        },
+        {
+          "1_perc": 0.56,
+          "3_perc": 0.69,
+          "5_perc": 0.81,
+          "control": 0.38,
+          "perc_applied": "NICOTINE, MG/CIGT."
+        },
+        {
+          "1_perc": 7.4,
+          "3_perc": 7.4,
+          "5_perc": 6.7,
+          "control": 7.5,
+          "perc_applied": "CO, MG/CIGT."
+        },
+        {
+          "1_perc": 9.1,
+          "3_perc": 7.1,
+          "5_perc": 6,
+          "control": 12.1,
+          "perc_applied": "T/N"
+        },
+        {
+          "1_perc": 1169,
+          "3_perc": 1232,
+          "5_perc": 968,
+          "control": 1601,
+          "perc_applied": "AMES R/MG."
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

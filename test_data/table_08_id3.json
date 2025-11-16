@@ -1,0 +1,122 @@
+{
+  "id": 3,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "num_deaths": {
+        "type": "number",
+        "description": ""
+      },
+      "covid_cases_table": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "region": {
+              "type": "string",
+              "description": ""
+            },
+            "num_active_cases": {
+              "type": "number",
+              "description": ""
+            },
+            "num_positive_cases": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      },
+      "num_hospitalizations": {
+        "type": "number",
+        "description": ""
+      },
+      "num_persons_recovered": {
+        "type": "number",
+        "description": ""
+      },
+      "num_persons_with_covid": {
+        "type": "number",
+        "description": ""
+      }
+    }
+  },
+  "json_gt": {
+    "num_deaths": 24,
+    "covid_cases_table": [
+      {
+        "region": "Far North Central",
+        "num_active_cases": 0,
+        "num_positive_cases": 0
+      },
+      {
+        "region": "Far North West",
+        "num_active_cases": 1,
+        "num_positive_cases": 349
+      },
+      {
+        "region": "Far North East",
+        "num_active_cases": 1,
+        "num_positive_cases": 9
+      },
+      {
+        "region": "North West",
+        "num_active_cases": 2,
+        "num_positive_cases": 131
+      },
+      {
+        "region": "North Central",
+        "num_active_cases": 0,
+        "num_positive_cases": 73
+      },
+      {
+        "region": "North East",
+        "num_active_cases": 1,
+        "num_positive_cases": 67
+      },
+      {
+        "region": "Saskatoon",
+        "num_active_cases": 81,
+        "num_positive_cases": 359
+      },
+      {
+        "region": "Regina",
+        "num_active_cases": 24,
+        "num_positive_cases": 162
+      },
+      {
+        "region": "Central West",
+        "num_active_cases": 7,
+        "num_positive_cases": 173
+      },
+      {
+        "region": "Central East",
+        "num_active_cases": 16,
+        "num_positive_cases": 62
+      },
+      {
+        "region": "South West",
+        "num_active_cases": 4,
+        "num_positive_cases": 222
+      },
+      {
+        "region": "South Central",
+        "num_active_cases": 4,
+        "num_positive_cases": 199
+      },
+      {
+        "region": "South East",
+        "num_active_cases": 5,
+        "num_positive_cases": 18
+      }
+    ],
+    "num_hospitalizations": 9,
+    "num_persons_recovered": 1654,
+    "num_persons_with_covid": 1824
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

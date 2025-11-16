@@ -1,0 +1,112 @@
+{
+  "id": 37,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "journal_table": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "journal": {
+              "type": "string",
+              "description": ""
+            },
+            "comments": {
+              "type": "string",
+              "description": ""
+            },
+            "circulation": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "journal_table": [
+      {
+        "journal": "The Nurse Practitioner",
+        "comments": "Monthly",
+        "circulation": 27000
+      },
+      {
+        "journal": "American Journal of Nursing",
+        "comments": "Monthly",
+        "circulation": 233000
+      },
+      {
+        "journal": "CNS: The Journal for Advanced Nursing Practice",
+        "comments": "Bimonthly",
+        "circulation": 3600
+      },
+      {
+        "journal": "Journal of Advanced Nursing",
+        "comments": "Monthly",
+        "circulation": 2685
+      },
+      {
+        "journal": "Journal of Obstetric, Gynecologic, and Neonatal Nursing",
+        "comments": "9 issues/year",
+        "circulation": 25000
+      },
+      {
+        "journal": "Nursing Clinics of North America (Invitation only)",
+        "comments": "Quarterly",
+        "circulation": 6200
+      },
+      {
+        "journal": "Public Health Nursing",
+        "comments": "Bimonthly",
+        "circulation": 1000
+      },
+      {
+        "journal": "RN",
+        "comments": "Monthly",
+        "circulation": 275000
+      },
+      {
+        "journal": "Nursing (Year)",
+        "comments": "Monthly",
+        "circulation": 325000
+      },
+      {
+        "journal": "Journal of the American Academy of Nurse Practitioners",
+        "comments": "Monthly",
+        "circulation": 15000
+      },
+      {
+        "journal": "Advance for Nurse Practitioners",
+        "comments": "Monthly",
+        "circulation": 41000
+      },
+      {
+        "journal": "Clinician Reviews",
+        "comments": "10 issues/year",
+        "circulation": 112000
+      },
+      {
+        "journal": "Physician Assistant",
+        "comments": "Monthly",
+        "circulation": 20935
+      },
+      {
+        "journal": "Advance for Physician Assistants",
+        "comments": "Monthly",
+        "circulation": 33826
+      },
+      {
+        "journal": "Journal of the American Academy of Physician Assistants",
+        "comments": "Monthly",
+        "circulation": 38500
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

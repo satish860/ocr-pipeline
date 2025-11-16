@@ -1,0 +1,113 @@
+{
+  "id": 0,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "metal_rankings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "gold": {
+              "type": "number",
+              "description": ""
+            },
+            "total": {
+              "type": "number",
+              "description": ""
+            },
+            "bronze": {
+              "type": "number",
+              "description": ""
+            },
+            "nation": {
+              "type": "string",
+              "description": "Just the nation name, don't include abbr."
+            },
+            "sliver": {
+              "type": "number",
+              "description": ""
+            },
+            "ranking": {
+              "type": "number",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "metal_rankings": [
+      {
+        "gold": 2,
+        "total": 3,
+        "bronze": 0,
+        "nation": "Australia",
+        "sliver": 1,
+        "ranking": 1
+      },
+      {
+        "gold": 1,
+        "total": 3,
+        "bronze": 1,
+        "nation": "Italy",
+        "sliver": 1,
+        "ranking": 2
+      },
+      {
+        "gold": 1,
+        "total": 2,
+        "bronze": 1,
+        "nation": "Germany",
+        "sliver": 0,
+        "ranking": 3
+      },
+      {
+        "gold": 1,
+        "total": 1,
+        "bronze": 0,
+        "nation": "Soviet Union",
+        "sliver": 0,
+        "ranking": 4
+      },
+      {
+        "gold": 0,
+        "total": 3,
+        "bronze": 1,
+        "nation": "Switzerland",
+        "sliver": 2,
+        "ranking": 5
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 0,
+        "nation": "United States",
+        "sliver": 1,
+        "ranking": 6
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 1,
+        "nation": "Great Britain",
+        "sliver": 0,
+        "ranking": 7
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 1,
+        "nation": "France",
+        "sliver": 0,
+        "ranking": 7
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

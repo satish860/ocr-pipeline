@@ -1,0 +1,124 @@
+{
+  "id": 561,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "to": {
+        "type": "string"
+      },
+      "from": {
+        "type": "string"
+      },
+      "subject": {
+        "type": "string"
+      },
+      "geography": {
+        "type": "object",
+        "properties": {
+          "region": {
+            "enum": [
+              "FULL",
+              "PARTIAL"
+            ],
+            "type": "string"
+          }
+        }
+      },
+      "distribution": {
+        "type": "object",
+        "properties": {
+          "direct_accounts_and_chains": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name_of_account": {
+                  "type": "string"
+                },
+                "number_of_stores": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "to": "K. A. Sparrow",
+    "from": "F. Strickland",
+    "subject": "MAVERICK SPECIALS - PROGRESS REPORT",
+    "geography": {
+      "region": "FULL"
+    },
+    "distribution": {
+      "direct_accounts_and_chains": [
+        {
+          "name_of_account": "K&B",
+          "number_of_stores": 180
+        },
+        {
+          "name_of_account": "Sayle Oil",
+          "number_of_stores": 20
+        },
+        {
+          "name_of_account": "Delchamps",
+          "number_of_stores": 130
+        },
+        {
+          "name_of_account": "Dantzler",
+          "number_of_stores": 19
+        },
+        {
+          "name_of_account": "Winn Dixie",
+          "number_of_stores": 85
+        },
+        {
+          "name_of_account": "Southeast Foods",
+          "number_of_stores": 18
+        },
+        {
+          "name_of_account": "Schwegmann",
+          "number_of_stores": 39
+        },
+        {
+          "name_of_account": "Compac Foods",
+          "number_of_stores": 18
+        },
+        {
+          "name_of_account": "Autry Greer",
+          "number_of_stores": 36
+        },
+        {
+          "name_of_account": "Bayou Foods",
+          "number_of_stores": 17
+        },
+        {
+          "name_of_account": "Double Quick",
+          "number_of_stores": 36
+        },
+        {
+          "name_of_account": "Econ",
+          "number_of_stores": 16
+        },
+        {
+          "name_of_account": "Litco",
+          "number_of_stores": 23
+        },
+        {
+          "name_of_account": "Huber Oil",
+          "number_of_stores": 23
+        },
+        {
+          "name_of_account": "Morris Corp",
+          "number_of_stores": 22
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

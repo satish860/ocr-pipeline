@@ -1,0 +1,139 @@
+{
+  "id": 20,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "to": {
+        "type": "string",
+        "description": ""
+      },
+      "from": {
+        "type": "string",
+        "description": ""
+      },
+      "distributions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "region": {
+              "enum": [
+                "WITHIN",
+                "OUTSIDE"
+              ],
+              "type": "string",
+              "description": ""
+            },
+            "num_of_stores": {
+              "type": "number",
+              "description": ""
+            },
+            "ind_lor_volume": {
+              "type": "string",
+              "description": "IND/LOR"
+            },
+            "name_of_account": {
+              "type": "string",
+              "description": ""
+            }
+          },
+          "description": ""
+        }
+      },
+      "submission_date": {
+        "type": "string",
+        "description": ""
+      },
+      "transition_plan": {
+        "type": "object",
+        "properties": {
+          "pre_sell": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "description": ""
+      }
+    }
+  },
+  "json_gt": {
+    "to": "K. A. Sparrow",
+    "from": "R. E. Lane",
+    "distributions": [
+      {
+        "region": "WITHIN",
+        "num_of_stores": 18,
+        "ind_lor_volume": "104/22",
+        "name_of_account": "Sico Serve"
+      },
+      {
+        "region": "WITHIN",
+        "num_of_stores": 150,
+        "ind_lor_volume": "521/42",
+        "name_of_account": "Sheetz"
+      },
+      {
+        "region": "WITHIN",
+        "num_of_stores": 183,
+        "ind_lor_volume": "137/20",
+        "name_of_account": "Thrift/Eckerd"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 21,
+        "ind_lor_volume": null,
+        "name_of_account": "Kroger"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 82,
+        "ind_lor_volume": null,
+        "name_of_account": "Rich Oil"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 106,
+        "ind_lor_volume": null,
+        "name_of_account": "Super America"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 87,
+        "ind_lor_volume": null,
+        "name_of_account": "CVS"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 5,
+        "ind_lor_volume": null,
+        "name_of_account": "W H Smith"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 23,
+        "ind_lor_volume": null,
+        "name_of_account": "7-11 318 Zon"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 35,
+        "ind_lor_volume": null,
+        "name_of_account": "Dairy Marts"
+      },
+      {
+        "region": "OUTSIDE",
+        "num_of_stores": 43,
+        "ind_lor_volume": null,
+        "name_of_account": "Widman Drugs"
+      }
+    ],
+    "submission_date": "JUNE 30",
+    "transition_plan": {
+      "pre_sell": "Overall pre-sell efforts were successful. Retail accounts that previously stocked Style Full Price accepted the introduction of the low price."
+    }
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

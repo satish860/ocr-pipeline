@@ -1,0 +1,169 @@
+{
+  "id": 880,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "total_males": {
+        "type": "number"
+      },
+      "total_females": {
+        "type": "number"
+      },
+      "physical_findings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string"
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "male_number": {
+                    "type": "number"
+                  },
+                  "finding_name": {
+                    "type": "string"
+                  },
+                  "male_percent": {
+                    "type": "number"
+                  },
+                  "female_number": {
+                    "type": "number"
+                  },
+                  "female_percent": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "title": "Number and Percent of Students with Positive Clinical Findings by Sex (1972)",
+    "total_males": 105,
+    "total_females": 100,
+    "physical_findings": [
+      {
+        "category": "LIPS",
+        "findings": [
+          {
+            "male_number": 0,
+            "finding_name": "Pallor of mucosa",
+            "male_percent": 0,
+            "female_number": 2,
+            "female_percent": 2
+          }
+        ]
+      },
+      {
+        "category": "GUMS",
+        "findings": [
+          {
+            "male_number": 3,
+            "finding_name": "Marginal redness or swelling",
+            "male_percent": 2.86,
+            "female_number": 2,
+            "female_percent": 2
+          }
+        ]
+      },
+      {
+        "category": "FACE AND NECK",
+        "findings": [
+          {
+            "male_number": 2,
+            "finding_name": "Thyroid enlarged: GO",
+            "male_percent": 1.9,
+            "female_number": 8,
+            "female_percent": 8
+          },
+          {
+            "male_number": 7,
+            "finding_name": "GI",
+            "male_percent": 6.67,
+            "female_number": 7,
+            "female_percent": 7
+          },
+          {
+            "male_number": 1,
+            "finding_name": "GII",
+            "male_percent": 0.95,
+            "female_number": 4,
+            "female_percent": 4
+          }
+        ]
+      },
+      {
+        "category": "TONGUE",
+        "findings": [
+          {
+            "male_number": 7,
+            "finding_name": "Filiform papillary atrophy",
+            "male_percent": 6.67,
+            "female_number": 3,
+            "female_percent": 3
+          },
+          {
+            "male_number": 1,
+            "finding_name": "Fungiform papillary hypertrophy",
+            "male_percent": 0.95,
+            "female_number": 0,
+            "female_percent": 0
+          },
+          {
+            "male_number": 0,
+            "finding_name": "Fissures",
+            "male_percent": 0,
+            "female_number": 1,
+            "female_percent": 1
+          },
+          {
+            "male_number": 1,
+            "finding_name": "Geographic",
+            "male_percent": 0.95,
+            "female_number": 0,
+            "female_percent": 0
+          }
+        ]
+      },
+      {
+        "category": "TEETH",
+        "findings": [
+          {
+            "male_number": 5,
+            "finding_name": "Cavities in four or more teeth",
+            "male_percent": 4.76,
+            "female_number": 3,
+            "female_percent": 3
+          }
+        ]
+      },
+      {
+        "category": "SKIN",
+        "findings": [
+          {
+            "male_number": 0,
+            "finding_name": "Follicular hyperkeratosis",
+            "male_percent": 0,
+            "female_number": 2,
+            "female_percent": 2
+          }
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}

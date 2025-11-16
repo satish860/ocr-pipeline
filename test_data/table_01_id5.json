@@ -1,0 +1,166 @@
+{
+  "id": 5,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "total": {
+        "type": "number",
+        "description": "In thousands"
+      },
+      "subtotal": {
+        "type": "number",
+        "description": "In thousands"
+      },
+      "inflation": {
+        "type": "object",
+        "properties": {
+          "rate": {
+            "type": "number"
+          },
+          "amount": {
+            "type": "number",
+            "description": "In percentage"
+          },
+          "duration": {
+            "type": "number",
+            "description": "In years"
+          }
+        }
+      },
+      "major_equipment_needs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "no": {
+              "type": "number"
+            },
+            "item": {
+              "type": "string"
+            },
+            "unit_cost": {
+              "type": "number",
+              "description": "In thousands"
+            },
+            "extended_cost": {
+              "type": "number",
+              "description": "In thousands"
+            }
+          },
+          "description": ""
+        }
+      }
+    }
+  },
+  "json_gt": {
+    "total": 467.5,
+    "subtotal": 353.5,
+    "inflation": {
+      "rate": 15,
+      "amount": 114,
+      "duration": 2
+    },
+    "major_equipment_needs": [
+      {
+        "no": 1,
+        "item": "Atomic Absorption Spectrometer",
+        "unit_cost": 17,
+        "extended_cost": 17
+      },
+      {
+        "no": 36,
+        "item": "Animal Cage Racks",
+        "unit_cost": 1.5,
+        "extended_cost": 54
+      },
+      {
+        "no": 2,
+        "item": "CO\u2082 Incubator",
+        "unit_cost": 2.6,
+        "extended_cost": 5.2
+      },
+      {
+        "no": 1,
+        "item": "Coulter Counter",
+        "unit_cost": 5,
+        "extended_cost": 5
+      },
+      {
+        "no": 1,
+        "item": "Ultra Cold Freezers",
+        "unit_cost": 3,
+        "extended_cost": 3
+      },
+      {
+        "no": 3,
+        "item": "Autoclaves",
+        "unit_cost": 13,
+        "extended_cost": 39
+      },
+      {
+        "no": 1,
+        "item": "Fermentators (Pilot Plant)",
+        "unit_cost": 8,
+        "extended_cost": 8
+      },
+      {
+        "no": 1,
+        "item": "Electromagnetic Whole Body Fat Counter",
+        "unit_cost": 50,
+        "extended_cost": 50
+      },
+      {
+        "no": 1,
+        "item": "UV/VIS Spectrophotometer for Kinetics",
+        "unit_cost": 19,
+        "extended_cost": 19
+      },
+      {
+        "no": 1,
+        "item": "Liquid Scintillation Counter",
+        "unit_cost": 27,
+        "extended_cost": 27
+      },
+      {
+        "no": 1,
+        "item": "Ultra Centrifuge with Heads",
+        "unit_cost": 27.8,
+        "extended_cost": 27.8
+      },
+      {
+        "no": 1,
+        "item": "Spectrofluorometer",
+        "unit_cost": 7.5,
+        "extended_cost": 7.5
+      },
+      {
+        "no": 1,
+        "item": "Amino Acid Analyzer",
+        "unit_cost": 45,
+        "extended_cost": 45
+      },
+      {
+        "no": 1,
+        "item": "Cold Boxes (4' x 6' x 7')",
+        "unit_cost": 4,
+        "extended_cost": 4
+      },
+      {
+        "no": 1,
+        "item": "High Pressure Liquid Chromatograph",
+        "unit_cost": 20,
+        "extended_cost": 20
+      },
+      {
+        "no": 1,
+        "item": "Gas Chromatograph",
+        "unit_cost": 22,
+        "extended_cost": 22
+      }
+    ]
+  },
+  "metadata": {
+    "format": "TABLE",
+    "documentQuality": "PHOTO"
+  }
+}
