@@ -3,9 +3,13 @@ Evaluation metrics for OCR benchmark using strict matching (getomni-ai methodolo
 
 Implements the official benchmark evaluation:
 Accuracy = 1 - (number of different fields / total fields)
+
+With normalization support for dates, numbers, and phone numbers to reduce
+false mismatches caused by formatting differences.
 """
 
 from typing import Dict, List, Any, Tuple
+from benchmark.normalizer import normalize_for_comparison, normalize_numeric_comparison
 
 
 def compare_json(
@@ -66,17 +70,28 @@ def _compare_recursive(
 
     Updates result dict in-place with field counts and differences.
     """
-    # Type mismatch - count as different
+    # Type mismatch - but allow numeric/string comparisons to proceed
+    # (they will be normalized in the primitive comparison step)
     if type(predicted) != type(ground_truth):
-        result['total_fields'] += 1
-        result['different_fields'] += 1
-        result['differences'].append({
-            'path': path or 'root',
-            'predicted': _safe_repr(predicted),
-            'ground_truth': _safe_repr(ground_truth),
-            'type': 'type_mismatch'
-        })
-        return
+        # Allow numeric types (int, float) to be compared with strings
+        # These will be normalized later
+        is_numeric_string_comparison = (
+            (isinstance(predicted, (int, float)) and isinstance(ground_truth, str)) or
+            (isinstance(predicted, str) and isinstance(ground_truth, (int, float)))
+        )
+
+        if not is_numeric_string_comparison:
+            # True type mismatch (e.g., dict vs list, string vs bool)
+            result['total_fields'] += 1
+            result['different_fields'] += 1
+            result['differences'].append({
+                'path': path or 'root',
+                'predicted': _safe_repr(predicted),
+                'ground_truth': _safe_repr(ground_truth),
+                'type': 'type_mismatch'
+            })
+            return
+        # else: Continue to primitive comparison for normalization
 
     # Handle None/null
     if predicted is None and ground_truth is None:
@@ -95,14 +110,28 @@ def _compare_recursive(
 
     # Handle primitives (string, number, boolean)
     result['total_fields'] += 1
-    if predicted != ground_truth:
+
+    # Apply normalization with support for numeric types (int, float, string)
+    # This handles cases like 17.0 (float) vs "17" (string)
+    normalized_pred, normalized_gt = normalize_numeric_comparison(predicted, ground_truth)
+    comparison_result = (normalized_pred != normalized_gt)
+
+    if comparison_result:
         result['different_fields'] += 1
-        result['differences'].append({
+        diff_entry = {
             'path': path or 'root',
             'predicted': _safe_repr(predicted),
             'ground_truth': _safe_repr(ground_truth),
             'type': 'value_mismatch'
-        })
+        }
+
+        # Add normalized values for debugging (only if normalization was applied)
+        # Check if normalization changed the values
+        if normalized_pred != predicted or normalized_gt != ground_truth:
+            diff_entry['normalized_predicted'] = _safe_repr(normalized_pred)
+            diff_entry['normalized_ground_truth'] = _safe_repr(normalized_gt)
+
+        result['differences'].append(diff_entry)
 
 
 def _compare_dicts(

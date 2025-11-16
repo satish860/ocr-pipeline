@@ -48,16 +48,33 @@ def extract_json_from_markdown(
 
 Instructions:
 1. **IMPORTANT**: Images are provided for tables, signatures, handwritten text, and other special elements. ALWAYS prioritize reading data from these images over the markdown text, as images contain the original visual data and are more accurate.
-2. For tables: Extract data directly from table images rather than relying on markdown table representations
-3. For signatures and handwritten text: Use the images to read names, dates, and other handwritten information accurately
-4. Extract all data from the document that corresponds to fields in the provided JSON schema
-5. Return ONLY valid JSON matching the schema structure
-6. Use exact field names from the schema
-7. If a field is not found in the document, omit it or use null
-8. For nested objects and arrays, follow the schema structure exactly
-9. Match data types from the schema (strings, numbers, arrays, objects)
-10. Preserve formatting when specified (dates, numbers, etc.)
-11. No additional text, explanations, or markdown formatting - ONLY the JSON object
+
+2. **For tables - CRITICAL INSTRUCTIONS**:
+   - Extract data directly from table images rather than relying on markdown table representations
+   - **Identify table structure first**: Look for headers, sections, subsections, and data rows
+   - **Nested tables**: If a table has hierarchical levels (main sections → subsections → data rows), map them correctly:
+     * Repeating rows with similar structure → Use JSON arrays
+     * Unique fields or properties → Use JSON objects
+     * Parent-child relationships → Use nested objects/arrays
+   - **Merged cells**: If a cell spans multiple rows/columns, extract the value once at the appropriate hierarchical level
+   - **Multi-level hierarchies**: Preserve the structure (e.g., category → items → details)
+   - **Array vs Object decision**:
+     * If the schema shows an array of objects, each table row should become one array element
+     * If the schema shows nested objects, map table sections to object properties
+   - **Category/classification fields**: Pay close attention to grouping and categorization within tables
+   - **Column alignment**: Ensure values are extracted from the correct columns and matched to the right field names
+
+3. **For signatures and handwritten text**: Use the images to read names, dates, and other handwritten information accurately
+
+4. **General extraction rules**:
+   - Extract all data from the document that corresponds to fields in the provided JSON schema
+   - Return ONLY valid JSON matching the schema structure
+   - Use exact field names from the schema
+   - If a field is not found in the document, omit it or use null
+   - For nested objects and arrays, follow the schema structure exactly
+   - Match data types from the schema (strings, numbers, arrays, objects)
+   - Preserve formatting when specified (dates, numbers, etc.)
+   - No additional text, explanations, or markdown formatting - ONLY the JSON object
 
 JSON Schema:
 ```json
@@ -97,7 +114,7 @@ Document Content (Markdown):
     }
 
     payload = {
-        "model": "anthropic/claude-haiku-4.5",
+        "model": "openai/gpt-5-mini",
         "messages": [
             {"role": "system", "content": system_content},
             {"role": "user", "content": user_content}
