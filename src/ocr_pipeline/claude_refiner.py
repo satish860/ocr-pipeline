@@ -135,18 +135,18 @@ def call_claude_refinement_api(
         raise ValueError("image_input must be either a file path (str) or PIL Image object")
 
     # Build system message
-    system_content = """You are an OCR accuracy verification expert. Your task is to verify and refine ALL content in OCR extraction results.
+    system_content = """You are an OCR accuracy verification and refinement expert. Your task is to aggressively improve OCR extraction quality by fixing ALL errors.
 
 CRITICAL INSTRUCTIONS:
 
 1. **Visual Verification First**: Compare the provided OCR extraction against the original document image
-2. **Conservative Refinement**: Only fix CLEAR errors where the extraction is objectively wrong
-3. **Preserve Valuable Information**: If OCR extracted MORE complete text than visible (e.g., "IND/LOR VOLUME" vs just "VOLUME"), that's BETTER, not an error
-4. **Trust Good Extractions**: If the extraction looks accurate, return it EXACTLY as provided
-5. **No Harmful "Corrections"**: Don't simplify or "clean up" text that is already correct
+2. **Aggressive Refinement**: Fix ALL errors where the extraction doesn't match the image - don't be conservative
+3. **Preserve Valuable Information**: If OCR extracted MORE complete text than visible (e.g., "IND/LOR VOLUME" vs just "VOLUME"), that's BETTER, keep it
+4. **Rebuild When Necessary**: If structure is wrong (especially tables), rebuild it completely from the image
+5. **Text Accuracy**: Don't "correct" the document content itself, just extract what's actually there
 
 WHAT TO FIX (ALL CONTENT TYPES):
-- **Misread characters or numbers**: Clear OCR errors in any text (paragraphs, headers, labels, etc.)
+- **Misread characters or numbers**: Any OCR errors in text (paragraphs, headers, labels, etc.)
 - **Incorrect table structure**: Wrong columns, missing rows, misaligned data, incorrect cell values
 - **Missing content**: Paragraphs, headers, labels, or text completely missed by OCR
 - **Wrong text position/order**: Content appearing in wrong reading order
@@ -155,12 +155,94 @@ WHAT TO FIX (ALL CONTENT TYPES):
 - **Chart/image descriptions**: Inaccurate or missing descriptions of charts, diagrams, images
 - **Special elements**: Incorrectly identified signatures, stamps, or annotations
 
+CRITICAL TABLE STRUCTURE VERIFICATION:
+
+Tables are the #1 source of OCR errors. Follow these steps:
+
+**Step 0: DETECT TABLE BOUNDARIES**
+- Look at the image to identify table borders (usually black lines forming rectangles)
+- If the OCR extracted multiple separate tables BUT they are all within ONE continuous outer border → they should be ONE unified table
+- If tables are visually separated with space between them → keep them separate
+- Common mistake: OCR splits a single invoice/form table into multiple tables based on internal sections
+
+**Step 1: COUNT COLUMNS**
+- Look at the image and count the vertical gridlines/column separators for the ENTIRE table
+- This is the TRUE column count - ignore what the OCR says
+- Different rows may use colspan to span multiple columns
+- Example: If you see 12 vertical separators across the full table width, the table has 12 columns
+
+**Step 2: IDENTIFY HEADER ROWS**
+- Check if row 1 has different styling (bold text, background color, larger font)
+- If row 1 looks like regular data cells → it's NOT a header row, use <tbody> for all rows
+- Only use <thead> if the row is visually distinct as a header
+
+**Step 3: DETECT MERGED CELLS**
+- Look for cells that span multiple columns (colspan) or rows (rowspan)
+- Count the cell borders carefully to determine exact span
+- Example: Cell with text spanning 3 column widths → colspan="3"
+
+**Step 4: VALIDATE EACH ROW**
+- Count cells in each row: regular cells + (colspan values) + (rowspan values) must equal total columns
+- Example: Table with 12 columns, row has 3 cells:
+  - Cell 1: colspan="6" (6 columns)
+  - Cell 2: colspan="4" (4 columns)
+  - Cell 3: regular cell (1 column)
+  - Cell 4: regular cell (1 column)
+  - Total: 6 + 4 + 1 + 1 = 12 ✓
+
+**Step 5: REBUILD IF WRONG**
+- If the OCR table structure is incorrect, COMPLETELY REBUILD it from scratch
+- Don't try to "patch" a broken structure - start fresh based on visual analysis
+- Extract cell contents into the correct structure you determined in Steps 1-4
+
+**Example 1: Merging Split Tables**
+```
+OCR extracted 3 separate tables, but image shows ONE continuous bordered table:
+❌ WRONG: <table>...</table> ... <table>...</table> ... <table>...</table>
+✓ CORRECT: Merge into ONE table with multiple sections using colspan for varying row structures
+
+<table>
+<tbody>
+  <!-- First section: 3 columns -->
+  <tr>
+    <td colspan="4">GSTIN: ...</td>
+    <td colspan="6">Voucher NO: ...</td>
+    <td colspan="2">Date:</td>
+  </tr>
+
+  <!-- Section header spanning full width -->
+  <tr>
+    <td colspan="12"><strong>Details of Service Receiver</strong></td>
+  </tr>
+
+  <!-- Main data section: 12 columns -->
+  <tr>
+    <td>S.No.</td>
+    <td>ITS</td>
+    <td>SAC Code</td>
+    ...12 columns total...
+  </tr>
+</tbody>
+</table>
+```
+
+**Example 2: Table Row Validation**
+```
+Image shows 12-column table:
+Row with text spanning columns → use colspan
+
+Correct:
+  <td colspan="6">Invoice Value - Nine Lac...</td>
+  <td colspan="4"></td>
+  <td>Invoice Total</td>
+  <td>9,04,116</td>
+Total: 6 + 4 + 1 + 1 = 12 ✓
+```
+
 WHAT NOT TO "FIX":
 - More complete text than visible in image (this is good!)
 - Abbreviations that are expanded (e.g., "Number" vs "No.")
-- Text that matches the image but looks "wrong" to you
-- Formatting choices (unless clearly incorrect)
-- Minor stylistic differences that don't affect accuracy
+- Don't "correct" the document content itself (if invoice says "9,04,116" don't change it to "904116")
 
 OUTPUT FORMAT:
 Return refined semantic HTML with:
@@ -170,7 +252,6 @@ Return refined semantic HTML with:
 - **Alignment**: <div align="right">, <div align="center"> where appropriate
 - **Coordinate annotations**: Preserve <!-- Type (x1, y1, x2, y2) --> for all special elements
 - **Handwritten elements**: Accurately transcribe signatures, handwritten notes, stamps
-- **If NO changes needed**: Return the EXACT input HTML
 
 CRITICAL OUTPUT RULE:
 Return ONLY the refined HTML/Markdown content itself. Do NOT include:
@@ -181,7 +262,7 @@ Return ONLY the refined HTML/Markdown content itself. Do NOT include:
 
 Start your response IMMEDIATELY with the first line of the refined document (e.g., <div align="center">...).
 
-Remember: This is an OCR system. Your job is to accurately extract EVERYTHING in the image (text, tables, signatures, handwritten notes, charts), not to "improve" or "correct" the document content itself."""
+Remember: Your job is to accurately extract EVERYTHING in the image (text, tables, signatures, handwritten notes, charts) and FIX ALL structural and content errors. Be aggressive about fixing tables - they are usually wrong!"""
 
     # Build user message
     user_content = [

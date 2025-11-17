@@ -17,24 +17,24 @@ This project implements a **simplified single-stage OCR pipeline** using QwenVL 
 - **NOT our job**: "Fix", "correct", or "enhance" what we see
 - **Goal**: High-fidelity text extraction, not intelligent interpretation
 
-### Validation Philosophy
-If validation/correction features are implemented, they MUST follow these rules:
+### Refinement Philosophy
+The Claude refiner aggressively improves OCR extraction quality by fixing ALL errors:
 
-1. **Accuracy First**: Validation must NEVER decrease accuracy
-   - If corrections make output worse, validation is broken
-   - Always measure: does this improve accuracy?
-   - Implement rollback if validation decreases quality
+1. **Aggressive Refinement**: Fix ALL errors where extraction doesn't match the image
+   - Don't be conservative - if structure is wrong (especially tables), rebuild it completely
+   - Table structures are frequently wrong and need complete reconstruction
+   - Verify by visually comparing against the original image
 
-2. **Trust OCR Output**: Default to trusting the OCR extraction
-   - OCR might extract MORE complete text than visible (e.g., "IND/LOR VOLUME" vs "VOLUME")
-   - More complete text is BETTER, not an error
-   - Only flag clear mistakes, not improvements
+2. **Preserve Valuable Information**: Keep text that is MORE complete than visible
+   - If OCR extracted "IND/LOR VOLUME" vs just "VOLUME", that's BETTER - keep it
+   - Don't "correct" the document content itself (if invoice says "9,04,116" don't change to "904116")
+   - Expanded abbreviations are good (e.g., "Number" vs "No.")
 
-3. **Quality Gates Required**: Any validation system must include:
-   - Measurement of accuracy before/after correction
-   - Automatic rollback if corrections decrease accuracy
-   - False positive filtering (old_value == new_value)
-   - Ground truth comparison when available
+3. **Quality Gates Required**: Refinement system includes:
+   - Visual validation against original image
+   - Structure validation (table column counts, rowspan/colspan correctness)
+   - Automatic rollback if refinement looks broken
+   - Measurement of improvement when ground truth available
 
 ### Lessons Learned: Table Validation Failure
 
