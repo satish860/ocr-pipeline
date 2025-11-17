@@ -178,8 +178,10 @@ class OCRPipeline:
                     print("WARNING: Claude refiner not available, skipping refinement")
                 else:
                     print("Starting agentic refinement...")
+                    # Note: We pass original_image (not preprocessed) to Claude
+                    # Preprocessing is only for QwenVL extraction, Claude works fine with original
                     extraction_result = refine_with_agentic_loop(
-                        image_to_process,
+                        original_image,
                         extraction_result,
                         max_iterations=self.max_refinement_iterations,
                         include_usage=include_usage
@@ -203,8 +205,10 @@ class OCRPipeline:
                     print("WARNING: Claude refiner not available, skipping refinement")
                 else:
                     print("Refining with Claude Sonnet 4.5...")
+                    # Note: We pass original_image (not preprocessed) to Claude
+                    # Preprocessing is only for QwenVL extraction, Claude works fine with original
                     extraction_result = refine_with_claude(
-                        image_to_process,
+                        original_image,
                         extraction_result,
                         include_usage=include_usage
                     )

@@ -40,20 +40,59 @@ from .latex_to_html import convert_markdown_latex_to_html
 load_dotenv()
 
 
-def encode_pil_image_base64(image: Image.Image, format: str = "PNG") -> str:
+def encode_pil_image_base64(image: Image.Image, format: str = "PNG", max_size_mb: float = 4.0) -> str:
     """
-    Encode PIL Image to base64 string.
+    Encode PIL Image to base64 string, resizing if needed to stay under size limit.
+
+    Claude API has a 5 MB limit for base64 images. We target 4.0 MB to have safety margin.
 
     Args:
         image: PIL Image object
         format: Image format (PNG, JPEG, etc.)
+        max_size_mb: Maximum size in MB (default: 4.5 MB for safety margin)
 
     Returns:
         Base64 encoded string
     """
+    # Try encoding at full size first
     buffer = BytesIO()
     image.save(buffer, format=format)
-    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+    binary_data = buffer.getvalue()
+    encoded = base64.b64encode(binary_data).decode("utf-8")
+
+    # Calculate size in MB
+    # Base64 encoding adds ~33% overhead, so len(encoded) ≈ len(binary) * 1.33
+    # But we care about the binary size that Claude receives
+    binary_size_mb = len(binary_data) / (1024 * 1024)
+
+    if binary_size_mb <= max_size_mb:
+        return encoded
+
+    # Image too large - resize iteratively
+    print(f"  Image too large ({binary_size_mb:.1f} MB), resizing to fit {max_size_mb} MB limit...")
+
+    # Calculate scale factor needed
+    # Size is roughly proportional to pixel count (width * height)
+    scale_factor = (max_size_mb / binary_size_mb) ** 0.5  # Square root because 2D
+    scale_factor *= 0.85  # Add safety margin (more conservative)
+
+    new_width = int(image.width * scale_factor)
+    new_height = int(image.height * scale_factor)
+
+    print(f"  Resizing from {image.width}x{image.height} to {new_width}x{new_height}")
+
+    # Resize and re-encode
+    resized = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    buffer = BytesIO()
+    resized.save(buffer, format=format)
+    binary_data = buffer.getvalue()
+    encoded = base64.b64encode(binary_data).decode("utf-8")
+
+    # Verify new size
+    new_binary_size_mb = len(binary_data) / (1024 * 1024)
+    print(f"  Resized image size: {new_binary_size_mb:.1f} MB")
+
+    return encoded
 
 
 def call_claude_refinement_api(
@@ -197,7 +236,45 @@ OCR Extraction to Verify (HTML format):
         response.raise_for_status()
         result = response.json()
 
+        # Check for error response (e.g., image size limit exceeded)
+        if "error" in result:
+            error_data = result["error"]
+            # Try to extract the real error from nested metadata
+            if isinstance(error_data, dict):
+                # Check for nested provider error in metadata
+                metadata = error_data.get("metadata", {})
+                if "raw" in metadata:
+                    # OpenRouter wraps provider errors - try to parse them
+                    try:
+                        import json
+                        raw_error = json.loads(metadata["raw"])
+                        if "error" in raw_error and "message" in raw_error["error"]:
+                            error_msg = raw_error["error"]["message"]
+                        else:
+                            error_msg = error_data.get("message", str(error_data))
+                    except:
+                        error_msg = error_data.get("message", str(error_data))
+                else:
+                    error_msg = error_data.get("message", str(error_data))
+            else:
+                error_msg = str(error_data)
+
+            return html_content, {
+                'success': False,
+                'refinement_applied': False,
+                'usage': {},
+                'error': f"API error: {error_msg}"
+            }
+
         # Extract response text
+        if "choices" not in result:
+            return html_content, {
+                'success': False,
+                'refinement_applied': False,
+                'usage': {},
+                'error': f"Unexpected API response format. Keys: {list(result.keys())}"
+            }
+
         refined_html = result["choices"][0]["message"]["content"]
 
         # Clean HTML wrapper if Claude added code fences
