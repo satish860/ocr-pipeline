@@ -10,6 +10,9 @@ from datasets import load_dataset
 # Cache the dataset globally to avoid reloading
 _DATASET_CACHE = None
 
+# Cache the category index to avoid re-scanning all samples
+_CATEGORY_INDEX_CACHE = None
+
 
 def load_benchmark_dataset(force_reload: bool = False):
     """Load the OCR benchmark dataset from HuggingFace.
@@ -28,6 +31,57 @@ def load_benchmark_dataset(force_reload: bool = False):
         print(f"[OK] Dataset loaded: {len(_DATASET_CACHE)} samples")
 
     return _DATASET_CACHE
+
+
+def _build_category_index(force_rebuild: bool = False):
+    """Build an index mapping categories to sample indices.
+
+    This scans all samples once and caches the result to avoid repeated scanning.
+
+    Args:
+        force_rebuild: If True, rebuild the index even if cached
+
+    Returns:
+        Dictionary mapping category names (uppercase) to lists of sample indices
+    """
+    global _CATEGORY_INDEX_CACHE
+
+    if _CATEGORY_INDEX_CACHE is not None and not force_rebuild:
+        return _CATEGORY_INDEX_CACHE
+
+    dataset = load_benchmark_dataset()
+
+    print("[Indexing] Building category index (one-time scan)...")
+    category_index = {}
+
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        metadata = sample.get('metadata', '{}')
+
+        # Parse JSON string
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+
+        # Index by both format and documentQuality
+        if 'format' in metadata:
+            cat = metadata['format'].upper()
+            if cat not in category_index:
+                category_index[cat] = []
+            category_index[cat].append(i)
+
+        if 'documentQuality' in metadata:
+            cat = metadata['documentQuality'].upper()
+            if cat not in category_index:
+                category_index[cat] = []
+            category_index[cat].append(i)
+
+    _CATEGORY_INDEX_CACHE = category_index
+    print(f"[OK] Category index built: {len(category_index)} categories")
+
+    return _CATEGORY_INDEX_CACHE
 
 
 def _extract_sample_dict(sample) -> Dict[str, Any]:
@@ -117,32 +171,14 @@ def get_samples_by_category(category: str, n: int, seed: Optional[int] = None) -
         List of sample dictionaries from the specified category
     """
     dataset = load_benchmark_dataset()
+    category_index = _build_category_index()
 
     if seed is not None:
         random.seed(seed)
 
-    # Filter samples by category
-    filtered_indices = []
-    for i in range(len(dataset)):
-        sample = dataset[i]
-        metadata = sample.get('metadata', '{}')
-
-        # Parse JSON string
-        if isinstance(metadata, str):
-            try:
-                metadata = json.loads(metadata)
-            except json.JSONDecodeError:
-                metadata = {}
-
-        # Extract tags (format or other fields might contain category info)
-        tags = []
-        if 'format' in metadata:
-            tags.append(metadata['format'])
-        if 'documentQuality' in metadata:
-            tags.append(metadata['documentQuality'])
-
-        if category.upper() in [tag.upper() for tag in tags]:
-            filtered_indices.append(i)
+    # Look up category in cached index
+    category_upper = category.upper()
+    filtered_indices = category_index.get(category_upper, [])
 
     if not filtered_indices:
         print(f"[WARNING] No samples found with category '{category}'")

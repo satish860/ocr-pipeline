@@ -28,6 +28,13 @@ except ImportError:
     # Fallback if module not available
     convert_table_to_html = None
 
+# Import Claude refiner (conditional to avoid import errors)
+try:
+    from .claude_refiner import refine_with_claude
+except ImportError:
+    # Fallback if module not available
+    refine_with_claude = None
+
 
 def smart_resize(
     height: int,
@@ -564,7 +571,8 @@ def extract_document(
     include_images: bool = True,
     include_usage: bool = False,
     convert_tables_to_html: bool = False,
-    preprocess: bool = True
+    preprocess: bool = True,
+    refine: bool = False
 ) -> Dict:
     """
     Extract document content using QwenVL single-stage pipeline.
@@ -582,14 +590,19 @@ def extract_document(
         preprocess: Whether to apply image preprocessing (contrast enhancement, sharpening,
                     upscaling). Default=True. Improves accuracy by ~4% on low-quality images
                     with minimal overhead (~100-200ms). Recommended to keep enabled.
+        refine: Whether to refine extraction using Claude Sonnet 4.5 visual verification.
+                Default=False. Converts LaTeX→HTML, then Claude refines for accuracy.
+                Cost: +$0.04-0.12 per image. Follows OLMoCR-2 approach.
 
     Returns:
         Dict with:
         - markdown: Markdown with inline base64 images (if include_images=True)
+                    If refine=True, markdown will be HTML instead of LaTeX
         - images: List of extracted images [{type, base64, bbox}]
         - elements: List of detected elements with coordinates
         - usage: Usage/cost data (if include_usage=True)
         - quality: Image quality metrics (if preprocess=True)
+        - refinement: Refinement metadata (if refine=True)
         - success: Boolean indicating success
         - error: Error message if success=False
     """
@@ -701,7 +714,8 @@ CRITICAL TABLE EXTRACTION RULES:
                 extracted_images
             )
 
-        return {
+        # Prepare result dict
+        result = {
             'success': True,
             'markdown': markdown_with_images,
             'images': extracted_images,
@@ -710,6 +724,20 @@ CRITICAL TABLE EXTRACTION RULES:
             'quality': quality_metrics,
             'error': None
         }
+
+        # Apply Claude refinement if requested
+        if refine:
+            if refine_with_claude is None:
+                print("⚠️  Claude refiner not available, skipping refinement")
+            else:
+                # Refine using Claude Sonnet 4.5 (OLMoCR-2 approach)
+                result = refine_with_claude(
+                    image_to_process if 'image_to_process' in locals() else image_path,
+                    result,
+                    include_usage=include_usage
+                )
+
+        return result
 
     except Exception as e:
         return {
