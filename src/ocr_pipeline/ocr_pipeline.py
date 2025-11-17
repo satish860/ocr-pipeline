@@ -14,6 +14,7 @@ from PIL import Image
 from .image_analyzer import ImageAnalyzer
 from .qwen_extractor import QwenExtractor
 from .table_converter import TableConverter
+from .refinement_analyzer import RefinementAnalyzer
 
 # Import Claude refiner (conditional to avoid import errors)
 try:
@@ -37,6 +38,7 @@ class OCRPipeline:
         preprocess: bool = True,
         refine: bool = False,
         agentic_refine: bool = False,
+        auto_refine: bool = False,
         max_refinement_iterations: int = 2,
         convert_tables_to_html: bool = False,
         output_dir: Optional[str] = None,
@@ -50,6 +52,7 @@ class OCRPipeline:
             preprocess: Whether to apply image preprocessing (default: True)
             refine: Whether to refine extraction using Claude Sonnet 4.5 (default: False)
             agentic_refine: Whether to use iterative agentic refinement (default: False)
+            auto_refine: Whether to automatically refine only if content needs it (default: False)
             max_refinement_iterations: Maximum iterations for agentic refinement (default: 2)
             convert_tables_to_html: Whether to convert LaTeX tables to HTML (default: False)
             output_dir: Directory to save outputs (QwenVL + each iteration). If None, nothing saved.
@@ -59,6 +62,7 @@ class OCRPipeline:
         self.preprocess = preprocess
         self.refine = refine
         self.agentic_refine = agentic_refine
+        self.auto_refine = auto_refine
         self.max_refinement_iterations = max_refinement_iterations
         self.convert_tables_to_html = convert_tables_to_html
         self.output_dir = output_dir
@@ -67,6 +71,7 @@ class OCRPipeline:
         self.analyzer = ImageAnalyzer()
         self.extractor = QwenExtractor(min_pixels, max_pixels)
         self.table_converter = TableConverter() if convert_tables_to_html else None
+        self.refinement_analyzer = RefinementAnalyzer()
         self.refiner = None  # Lazy initialization in apply()
 
     def apply(
@@ -96,6 +101,7 @@ class OCRPipeline:
             - usage: Usage/cost data (if include_usage=True)
             - quality: Image quality metrics (if preprocess=True)
             - refinement: Refinement metadata (if refine=True)
+            - refinement_analysis: Analysis of whether refinement is needed (if auto_refine=True)
             - error: Error message if success=False
         """
         try:
@@ -171,8 +177,30 @@ class OCRPipeline:
                 else:
                     print(f"Warning: Table conversion failed: {conversion_result['error']}")
 
-            # Step 5: Refine with Claude (if enabled)
-            if self.agentic_refine:
+            # Step 5: Analyze if refinement is needed
+            refinement_analysis = None
+            should_refine = False
+            
+            if self.auto_refine:
+                # Auto-refine mode: Only refine if content analysis detects complex elements
+                refinement_analysis = self.refinement_analyzer.needs_refinement(
+                    extraction_result['markdown'],
+                    extraction_result.get('images', [])
+                )
+                should_refine = refinement_analysis['needs_refinement']
+                
+                if should_refine:
+                    print(f"Refinement needed (confidence: {refinement_analysis['confidence']:.1%}):")
+                    for reason in refinement_analysis['reasons']:
+                        print(f"  - {reason}")
+                else:
+                    print("No refinement needed - content is simple text only")
+            else:
+                # Manual mode: Refine if user explicitly enabled it
+                should_refine = self.refine or self.agentic_refine
+
+            # Step 6: Refine with Claude (if enabled or auto-detected)
+            if should_refine and self.agentic_refine:
                 # Use iterative agentic refinement
                 if refine_with_agentic_loop is None:
                     print("WARNING: Claude refiner not available, skipping refinement")
@@ -199,7 +227,7 @@ class OCRPipeline:
                                     stage=f"{iteration_num}_iteration_{iteration_num}"
                                 )
 
-            elif self.refine:
+            elif should_refine and self.refine:
                 # Use single-pass refinement
                 if refine_with_claude is None:
                     print("WARNING: Claude refiner not available, skipping refinement")
@@ -221,10 +249,11 @@ class OCRPipeline:
                             stage="1_refined"
                         )
 
-            # Step 6: Prepare final result
+            # Step 7: Prepare final result
             final_result = {
                 **extraction_result,
-                'quality': quality_result['quality'] if quality_result else None
+                'quality': quality_result['quality'] if quality_result else None,
+                'refinement_analysis': refinement_analysis
             }
 
             return final_result
