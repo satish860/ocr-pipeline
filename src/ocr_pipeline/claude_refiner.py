@@ -4,10 +4,17 @@ Claude Sonnet 4.5 Visual Refinement Module.
 This module provides optional visual refinement of QwenVL extraction using
 Claude Sonnet 4.5 via OpenRouter API. It follows the OLMoCR-2 approach:
 
-1. QwenVL extracts markdown + LaTeX tables
+1. QwenVL extracts markdown with all content (text, tables, signatures, handwritten notes, etc.)
 2. Python converts LaTeX → HTML (semantic structure)
-3. Claude visually verifies and refines HTML
-4. Output: Semantic HTML document
+3. Claude visually verifies and refines ALL content in the HTML
+4. Output: Refined semantic HTML document
+
+Claude verifies ALL content types:
+- Regular text (paragraphs, headers, labels, captions)
+- Tables (structure, cell values, alignment)
+- Handwritten elements (signatures, notes, stamps)
+- Special elements (charts, images, annotations)
+- Text alignment and positioning
 
 Key Design Principles (learned from table_bug.md):
 - Conservative refinement: Only fix clear errors
@@ -89,7 +96,7 @@ def call_claude_refinement_api(
         raise ValueError("image_input must be either a file path (str) or PIL Image object")
 
     # Build system message
-    system_content = """You are an OCR accuracy verification expert. Your task is to verify and refine OCR extraction results.
+    system_content = """You are an OCR accuracy verification expert. Your task is to verify and refine ALL content in OCR extraction results.
 
 CRITICAL INSTRUCTIONS:
 
@@ -99,28 +106,34 @@ CRITICAL INSTRUCTIONS:
 4. **Trust Good Extractions**: If the extraction looks accurate, return it EXACTLY as provided
 5. **No Harmful "Corrections"**: Don't simplify or "clean up" text that is already correct
 
-WHAT TO FIX:
-- Misread characters or numbers (clear OCR errors)
-- Incorrect table structure (wrong columns, missing rows, misaligned data)
-- Text in wrong position/order
-- Completely missed content
-- Table cells with wrong values
+WHAT TO FIX (ALL CONTENT TYPES):
+- **Misread characters or numbers**: Clear OCR errors in any text (paragraphs, headers, labels, etc.)
+- **Incorrect table structure**: Wrong columns, missing rows, misaligned data, incorrect cell values
+- **Missing content**: Paragraphs, headers, labels, or text completely missed by OCR
+- **Wrong text position/order**: Content appearing in wrong reading order
+- **Handwritten text errors**: Incorrectly transcribed handwritten notes, signatures, stamps
+- **Incorrect alignment**: Text alignment not matching the document (left/center/right)
+- **Chart/image descriptions**: Inaccurate or missing descriptions of charts, diagrams, images
+- **Special elements**: Incorrectly identified signatures, stamps, or annotations
 
 WHAT NOT TO "FIX":
 - More complete text than visible in image (this is good!)
 - Abbreviations that are expanded (e.g., "Number" vs "No.")
 - Text that matches the image but looks "wrong" to you
 - Formatting choices (unless clearly incorrect)
+- Minor stylistic differences that don't affect accuracy
 
 OUTPUT FORMAT:
 Return refined semantic HTML with:
-- Tables as <table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>
-- Proper structure using <div>, <p>, <h1>-<h6> tags
-- Preserve alignment: <div align="right">, <div align="center">
-- Preserve coordinate annotations: <!-- Type (x1, y1, x2, y2) -->
-- If NO changes needed, return the EXACT input HTML
+- **All text content**: Headers, paragraphs, labels, captions
+- **Tables**: <table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>
+- **Structure**: <div>, <p>, <h1>-<h6> tags for semantic organization
+- **Alignment**: <div align="right">, <div align="center"> where appropriate
+- **Coordinate annotations**: Preserve <!-- Type (x1, y1, x2, y2) --> for all special elements
+- **Handwritten elements**: Accurately transcribe signatures, handwritten notes, stamps
+- **If NO changes needed**: Return the EXACT input HTML
 
-Remember: This is an OCR system. Your job is to extract what's in the image accurately, not to "improve" or "correct" the document content itself."""
+Remember: This is an OCR system. Your job is to accurately extract EVERYTHING in the image (text, tables, signatures, handwritten notes, charts), not to "improve" or "correct" the document content itself."""
 
     # Build user message
     user_content = [
@@ -128,7 +141,14 @@ Remember: This is an OCR system. Your job is to extract what's in the image accu
             "type": "text",
             "text": f"""Please verify the accuracy of this OCR extraction against the document image.
 
-If you find clear OCR errors (misread text, wrong table structure, missing content), provide a refined version.
+Check ALL content types:
+- Regular text (paragraphs, headers, labels)
+- Tables (structure, cell values, alignment)
+- Handwritten elements (signatures, notes, stamps)
+- Special elements (charts, images, annotations)
+- Text alignment and positioning
+
+If you find clear OCR errors (misread text, wrong structure, missing content, incorrect transcription), provide a refined version.
 If the extraction is accurate, return it EXACTLY as provided.
 
 OCR Extraction to Verify (HTML format):
@@ -311,11 +331,18 @@ def refine_with_claude(
     Refine QwenVL extraction using Claude Sonnet 4.5 visual verification.
 
     This is the main entry point for refinement. It:
-    1. Takes QwenVL's markdown extraction (with LaTeX tables)
+    1. Takes QwenVL's markdown extraction (all content: text, tables, signatures, handwritten notes)
     2. Converts LaTeX tables to HTML using Python library
     3. Strips inline base64 images (they're huge and redundant)
-    4. Sends HTML structure + original image to Claude for visual verification
+    4. Sends HTML structure + original image to Claude for visual verification of ALL content
     5. Returns refined HTML (or original if refinement failed)
+
+    Claude verifies and refines ALL content types:
+    - Regular text (paragraphs, headers, labels)
+    - Tables (structure, cell values, alignment)
+    - Handwritten elements (signatures, notes, stamps)
+    - Special elements (charts, images, annotations)
+    - Text alignment and positioning
 
     Args:
         image_input: Either a file path (str) or PIL Image object
@@ -325,7 +352,7 @@ def refine_with_claude(
     Returns:
         Dict with same structure as qwen_result but with refined HTML:
         - success: bool
-        - markdown: refined HTML (or original HTML if refinement failed validation)
+        - markdown: refined HTML with ALL content verified (or original HTML if refinement failed validation)
         - images: same as input (not modified)
         - elements: same as input (not modified)
         - refinement: metadata about refinement (applied, usage, error)
