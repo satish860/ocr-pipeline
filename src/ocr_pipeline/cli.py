@@ -161,6 +161,17 @@ Features:
             if refinement.get('agentic'):
                 print(f"\n[SUCCESS] Agentic refinement complete")
                 print(f"  Iterations: {refinement.get('iterations', 0)}")
+
+                # Show stopping reason
+                stopping_reason = refinement.get('stopping_reason', 'unknown')
+                reason_display = {
+                    'converged': 'Converged (no changes detected)',
+                    'max_iterations_reached': 'Max iterations reached',
+                    'api_error': 'API error',
+                    'validation_failed': 'Validation failed'
+                }
+                print(f"  Stopped: {reason_display.get(stopping_reason, stopping_reason)}")
+
                 if refinement.get('iteration_history'):
                     for iter_data in refinement['iteration_history']:
                         status = "[Changes made]" if iter_data.get('changes_made') else "[No changes]"

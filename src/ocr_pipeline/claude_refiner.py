@@ -532,10 +532,11 @@ def refine_with_agentic_loop(
     """
     Agentic refinement loop - Claude iteratively refines its own output.
 
-    Phase 1 MVP: Simple 2-iteration loop
+    Iterative refinement with smart stopping:
     - Iteration 1: Refine QwenVL extraction
-    - Iteration 2: Refine the previous refinement (self-review)
-    - Returns both iterations for comparison
+    - Iteration N: Review and refine previous iteration
+    - Stops early when converged (no changes detected)
+    - Respects max_iterations safety limit
 
     Args:
         image_input: Either a file path (str) or PIL Image object
@@ -544,7 +545,7 @@ def refine_with_agentic_loop(
         include_usage: Whether to include usage/cost data
 
     Returns:
-        Dict with refined content + iteration history
+        Dict with refined content + iteration history + stopping reason
     """
     # Extract QwenVL markdown
     qwen_markdown = qwen_result.get('markdown', '')
@@ -564,9 +565,10 @@ def refine_with_agentic_loop(
     html_with_images = convert_markdown_latex_to_html(qwen_markdown)
     html_content = remove_inline_base64_images(html_with_images)
 
-    # Track iteration history
+    # Track iteration history and stopping reason
     iterations = []
     current_html = html_content
+    stopping_reason = "max_iterations_reached"
 
     # Iteration loop
     for iteration in range(1, max_iterations + 1):
@@ -594,6 +596,7 @@ def refine_with_agentic_loop(
         if not metadata['success']:
             print(f"ERROR: Claude API failed: {metadata['error']}")
             print("Stopping iterations early")
+            stopping_reason = "api_error"
             break
 
         # Validate refinement
@@ -610,6 +613,7 @@ def refine_with_agentic_loop(
                 'validation_reason': reason,
                 'usage': metadata.get('usage', {})
             })
+            stopping_reason = "validation_failed"
             break
 
         # Check if anything changed
@@ -633,8 +637,12 @@ def refine_with_agentic_loop(
         # Update current HTML for next iteration
         current_html = refined_html
 
-        # Phase 2: Early stopping if converged (will add in Phase 2)
-        # For Phase 1, we always run all iterations
+        # Phase 2: Early stopping if converged
+        if not changes_made:
+            print(f"\nConverged: No changes detected in iteration {iteration}")
+            print("Stopping early to save API costs")
+            stopping_reason = "converged"
+            break
 
     # Build final result
     print(f"\n{'='*60}")
@@ -658,6 +666,7 @@ def refine_with_agentic_loop(
             'iterations': len(iterations),
             'iteration_history': iterations,
             'total_usage': total_usage,
-            'final_changes_made': iterations[-1]['changes_made'] if iterations else False
+            'final_changes_made': iterations[-1]['changes_made'] if iterations else False,
+            'stopping_reason': stopping_reason
         }
     }
