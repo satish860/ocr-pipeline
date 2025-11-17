@@ -133,6 +133,15 @@ Return refined semantic HTML with:
 - **Handwritten elements**: Accurately transcribe signatures, handwritten notes, stamps
 - **If NO changes needed**: Return the EXACT input HTML
 
+CRITICAL OUTPUT RULE:
+Return ONLY the refined HTML/Markdown content itself. Do NOT include:
+- Explanations of what you changed
+- Preambles like "I need to verify..." or "Here is the corrected version:"
+- Issue lists or reasoning
+- Any text before or after the actual content
+
+Start your response IMMEDIATELY with the first line of the refined document (e.g., <div align="center">...).
+
 Remember: This is an OCR system. Your job is to accurately extract EVERYTHING in the image (text, tables, signatures, handwritten notes, charts), not to "improve" or "correct" the document content itself."""
 
     # Build user message
@@ -433,5 +442,145 @@ def refine_with_claude(
         'refinement': {
             **metadata,
             'validation_passed': True
+        }
+    }
+
+
+def refine_with_agentic_loop(
+    image_input,  # Can be str (file path) or PIL Image
+    qwen_result: Dict,
+    max_iterations: int = 2,
+    include_usage: bool = False
+) -> Dict:
+    """
+    Agentic refinement loop - Claude iteratively refines its own output.
+
+    Phase 1 MVP: Simple 2-iteration loop
+    - Iteration 1: Refine QwenVL extraction
+    - Iteration 2: Refine the previous refinement (self-review)
+    - Returns both iterations for comparison
+
+    Args:
+        image_input: Either a file path (str) or PIL Image object
+        qwen_result: Result dict from extract_document()
+        max_iterations: Maximum refinement iterations (default: 2)
+        include_usage: Whether to include usage/cost data
+
+    Returns:
+        Dict with refined content + iteration history
+    """
+    # Extract QwenVL markdown
+    qwen_markdown = qwen_result.get('markdown', '')
+
+    if not qwen_markdown:
+        return {
+            **qwen_result,
+            'refinement': {
+                'success': False,
+                'refinement_applied': False,
+                'error': 'No markdown in qwen_result'
+            }
+        }
+
+    # Convert LaTeX to HTML once (before iterations)
+    print("Converting LaTeX tables to HTML...")
+    html_with_images = convert_markdown_latex_to_html(qwen_markdown)
+    html_content = remove_inline_base64_images(html_with_images)
+
+    # Track iteration history
+    iterations = []
+    current_html = html_content
+
+    # Iteration loop
+    for iteration in range(1, max_iterations + 1):
+        print(f"\n{'='*60}")
+        print(f"Refinement Iteration {iteration}/{max_iterations}")
+        print(f"{'='*60}")
+
+        # Build prompt for this iteration
+        if iteration == 1:
+            # First iteration: standard refinement
+            prompt_html = current_html
+            print("Task: Refine QwenVL extraction")
+        else:
+            # Subsequent iterations: review previous refinement
+            prompt_html = current_html
+            print("Task: Review and refine previous iteration")
+
+        # Call Claude
+        refined_html, metadata = call_claude_refinement_api(
+            image_input,
+            prompt_html,
+            include_usage=include_usage
+        )
+
+        if not metadata['success']:
+            print(f"ERROR: Claude API failed: {metadata['error']}")
+            print("Stopping iterations early")
+            break
+
+        # Validate refinement
+        is_valid, reason = validate_refinement(current_html, refined_html)
+
+        if not is_valid:
+            print(f"WARNING: Refinement failed validation: {reason}")
+            print("Stopping iterations early")
+            iterations.append({
+                'iteration': iteration,
+                'html': current_html,
+                'changes_made': False,
+                'validation_failed': True,
+                'validation_reason': reason,
+                'usage': metadata.get('usage', {})
+            })
+            break
+
+        # Check if anything changed
+        changes_made = refined_html.strip() != current_html.strip()
+
+        # Store iteration result
+        iterations.append({
+            'iteration': iteration,
+            'html': refined_html,
+            'changes_made': changes_made,
+            'validation_passed': True,
+            'usage': metadata.get('usage', {})
+        })
+
+        # Print iteration summary
+        if changes_made:
+            print(f"[CHANGE] Changes detected (length: {len(current_html)} -> {len(refined_html)} chars)")
+        else:
+            print("[NO CHANGE] Output identical to input")
+
+        # Update current HTML for next iteration
+        current_html = refined_html
+
+        # Phase 2: Early stopping if converged (will add in Phase 2)
+        # For Phase 1, we always run all iterations
+
+    # Build final result
+    print(f"\n{'='*60}")
+    print(f"Agentic Refinement Complete: {len(iterations)} iterations")
+    print(f"{'='*60}")
+
+    # Calculate total usage
+    total_usage = {}
+    if include_usage:
+        for iter_data in iterations:
+            usage = iter_data.get('usage', {})
+            for key, value in usage.items():
+                total_usage[key] = total_usage.get(key, 0) + value
+
+    return {
+        **qwen_result,
+        'markdown': current_html,  # Final refined HTML
+        'refinement': {
+            'success': True,
+            'agentic': True,
+            'iterations': len(iterations),
+            'iteration_history': iterations,
+            'total_usage': total_usage,
+            'final_changes_made': iterations[-1]['changes_made'] if iterations else False
         }
     }

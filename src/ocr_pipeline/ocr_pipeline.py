@@ -5,7 +5,9 @@ Main orchestrator that coordinates ImageAnalyzer, QwenExtractor, TableConverter,
 and ClaudeRefiner components to perform end-to-end document extraction.
 """
 
-from typing import Dict
+from typing import Dict, Optional
+from pathlib import Path
+from datetime import datetime
 
 from PIL import Image
 
@@ -15,10 +17,11 @@ from .table_converter import TableConverter
 
 # Import Claude refiner (conditional to avoid import errors)
 try:
-    from .claude_refiner import refine_with_claude
+    from .claude_refiner import refine_with_claude, refine_with_agentic_loop
 except ImportError:
     # Fallback if module not available
     refine_with_claude = None
+    refine_with_agentic_loop = None
 
 
 class OCRPipeline:
@@ -33,7 +36,10 @@ class OCRPipeline:
         self,
         preprocess: bool = True,
         refine: bool = False,
+        agentic_refine: bool = False,
+        max_refinement_iterations: int = 2,
         convert_tables_to_html: bool = False,
+        output_dir: Optional[str] = None,
         min_pixels: int = 512 * 32 * 32,
         max_pixels: int = 4608 * 32 * 32
     ):
@@ -43,13 +49,19 @@ class OCRPipeline:
         Args:
             preprocess: Whether to apply image preprocessing (default: True)
             refine: Whether to refine extraction using Claude Sonnet 4.5 (default: False)
+            agentic_refine: Whether to use iterative agentic refinement (default: False)
+            max_refinement_iterations: Maximum iterations for agentic refinement (default: 2)
             convert_tables_to_html: Whether to convert LaTeX tables to HTML (default: False)
+            output_dir: Directory to save outputs (QwenVL + each iteration). If None, nothing saved.
             min_pixels: Minimum pixels for image resize
             max_pixels: Maximum pixels for image resize
         """
         self.preprocess = preprocess
         self.refine = refine
+        self.agentic_refine = agentic_refine
+        self.max_refinement_iterations = max_refinement_iterations
         self.convert_tables_to_html = convert_tables_to_html
+        self.output_dir = output_dir
 
         # Initialize components
         self.analyzer = ImageAnalyzer()
@@ -137,6 +149,14 @@ class OCRPipeline:
                     'quality': quality_result['quality'] if quality_result else None
                 }
 
+            # Save QwenVL output if output_dir specified
+            if self.output_dir:
+                self._save_output(
+                    content=extraction_result['markdown'],
+                    image_path=image_path,
+                    stage="0_qwen_original"
+                )
+
             # Step 4: Convert tables to HTML (if enabled)
             if self.convert_tables_to_html and self.table_converter:
                 print("Converting LaTeX tables to HTML...")
@@ -152,17 +172,50 @@ class OCRPipeline:
                     print(f"Warning: Table conversion failed: {conversion_result['error']}")
 
             # Step 5: Refine with Claude (if enabled)
-            if self.refine:
+            if self.agentic_refine:
+                # Use iterative agentic refinement
+                if refine_with_agentic_loop is None:
+                    print("WARNING: Claude refiner not available, skipping refinement")
+                else:
+                    print("Starting agentic refinement...")
+                    extraction_result = refine_with_agentic_loop(
+                        image_to_process,
+                        extraction_result,
+                        max_iterations=self.max_refinement_iterations,
+                        include_usage=include_usage
+                    )
+
+                    # Save iteration outputs if output_dir specified
+                    if self.output_dir and 'refinement' in extraction_result:
+                        refinement = extraction_result['refinement']
+                        if refinement.get('iteration_history'):
+                            for iter_data in refinement['iteration_history']:
+                                iteration_num = iter_data['iteration']
+                                self._save_output(
+                                    content=iter_data['html'],
+                                    image_path=image_path,
+                                    stage=f"{iteration_num}_iteration_{iteration_num}"
+                                )
+
+            elif self.refine:
+                # Use single-pass refinement
                 if refine_with_claude is None:
-                    print("⚠️  Claude refiner not available, skipping refinement")
+                    print("WARNING: Claude refiner not available, skipping refinement")
                 else:
                     print("Refining with Claude Sonnet 4.5...")
-                    # Pass the processed image (not path) to Claude
                     extraction_result = refine_with_claude(
                         image_to_process,
                         extraction_result,
                         include_usage=include_usage
                     )
+
+                    # Save single-pass refinement output if output_dir specified
+                    if self.output_dir:
+                        self._save_output(
+                            content=extraction_result['markdown'],
+                            image_path=image_path,
+                            stage="1_refined"
+                        )
 
             # Step 6: Prepare final result
             final_result = {
@@ -182,3 +235,32 @@ class OCRPipeline:
                 'quality': None,
                 'error': str(e)
             }
+
+    def _save_output(self, content: str, image_path: str, stage: str):
+        """
+        Save output to file in output directory.
+
+        Args:
+            content: Markdown/HTML content to save
+            image_path: Original image path (used for filename)
+            stage: Stage name (e.g., "0_qwen_original", "1_iteration_1", "2_iteration_2")
+        """
+        if not self.output_dir:
+            return
+
+        # Create output directory if it doesn't exist
+        output_path = Path(self.output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename: image_name_stage_timestamp.md
+        image_name = Path(image_path).stem
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{image_name}_{stage}_{timestamp}.md"
+
+        output_file = output_path / filename
+
+        # Save content
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        print(f"Saved: {output_file}")

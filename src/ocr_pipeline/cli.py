@@ -11,7 +11,10 @@ def process_image(
     image_path: str,
     include_images: bool = True,
     convert_tables_to_html: bool = False,
-    refine: bool = False
+    refine: bool = False,
+    agentic_refine: bool = False,
+    max_iterations: int = 2,
+    output_dir: str = None
 ) -> dict:
     """
     Process a single image through the QwenVL extraction pipeline.
@@ -21,6 +24,8 @@ def process_image(
         include_images: Whether to extract and embed images (default: True)
         convert_tables_to_html: Whether to convert LaTeX tables to HTML
         refine: Whether to refine extraction using Claude Sonnet 4.5 (OLMoCR-2 approach)
+        agentic_refine: Whether to use iterative agentic refinement (multiple iterations)
+        max_iterations: Maximum refinement iterations (default: 2)
 
     Returns:
         Result dictionary from OCRPipeline.apply() with:
@@ -40,7 +45,10 @@ def process_image(
     pipeline = OCRPipeline(
         preprocess=True,  # Enable preprocessing by default
         refine=refine,
-        convert_tables_to_html=convert_tables_to_html
+        agentic_refine=agentic_refine,
+        max_refinement_iterations=max_iterations,
+        convert_tables_to_html=convert_tables_to_html,
+        output_dir=output_dir
     )
 
     result = pipeline.apply(
@@ -91,13 +99,35 @@ Features:
         help='Refine extraction using Claude Sonnet 4.5 (OLMoCR-2 approach). Converts LaTeX→HTML, then Claude refines for accuracy. Cost: +$0.04-0.12 per image.'
     )
 
+    parser.add_argument(
+        '--agentic-refine',
+        action='store_true',
+        help='Use iterative agentic refinement (Claude reviews its own output multiple times). Cost: 2-3x single-pass refinement.'
+    )
+
+    parser.add_argument(
+        '--max-iterations',
+        type=int,
+        default=2,
+        help='Maximum refinement iterations for agentic refinement (default: 2)'
+    )
+
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default=None,
+        help='Directory to save QwenVL output and each iteration output (e.g., output/). If not specified, nothing is saved.'
+    )
+
     args = parser.parse_args()
 
     print("=" * 80)
     print("OCR Pipeline - QwenVL Document Extraction")
     print("=" * 80)
     print(f"\nProcessing: {args.image}")
-    if args.refine:
+    if args.agentic_refine:
+        print(f"Refinement: Agentic mode (up to {args.max_iterations} iterations)")
+    elif args.refine:
         print("Refinement: Enabled (Claude Sonnet 4.5 visual verification)")
     if args.html_tables:
         print("Table conversion: Enabled (LaTeX → HTML via Gemini 2.5 Flash)")
@@ -106,7 +136,10 @@ Features:
     result = process_image(
         args.image,
         convert_tables_to_html=args.html_tables,
-        refine=args.refine
+        refine=args.refine,
+        agentic_refine=args.agentic_refine,
+        max_iterations=args.max_iterations,
+        output_dir=args.output_dir
     )
 
     if not result['success']:
@@ -124,7 +157,20 @@ Features:
     if 'refinement' in result:
         refinement = result['refinement']
         if refinement.get('success'):
-            if refinement.get('refinement_applied'):
+            # Agentic refinement stats
+            if refinement.get('agentic'):
+                print(f"\n[SUCCESS] Agentic refinement complete")
+                print(f"  Iterations: {refinement.get('iterations', 0)}")
+                if refinement.get('iteration_history'):
+                    for iter_data in refinement['iteration_history']:
+                        status = "[Changes made]" if iter_data.get('changes_made') else "[No changes]"
+                        print(f"    Iteration {iter_data['iteration']}: {status}")
+                if refinement.get('total_usage'):
+                    usage = refinement['total_usage']
+                    if 'total_tokens' in usage:
+                        print(f"  Total tokens: {usage['total_tokens']}")
+            # Single-pass refinement stats
+            elif refinement.get('refinement_applied'):
                 print("\n[SUCCESS] Claude refinement applied")
                 if refinement.get('validation_passed'):
                     print("  Validation: PASSED")
@@ -133,7 +179,7 @@ Features:
         else:
             print(f"\n[WARNING] Refinement failed: {refinement.get('error', 'Unknown error')}")
 
-    output_format = "HTML" if args.refine else "Markdown with LaTeX tables"
+    output_format = "HTML" if (args.refine or args.agentic_refine) else "Markdown with LaTeX tables"
     print(f"\nOutput format: {output_format}")
     print(f"Content length: {len(result['markdown'])} characters")
 
