@@ -2,9 +2,18 @@
 
 __version__ = "0.2.0"
 
-from .qwen_extractor import extract_document
+# Main pipeline orchestrator (recommended entry point)
+from .ocr_pipeline import OCRPipeline
+
+# Individual components (for advanced usage)
+from .image_analyzer import ImageAnalyzer
+from .qwen_extractor import QwenExtractor
+from .table_converter import TableConverter
 
 __all__ = [
-    "extract_document",
+    "OCRPipeline",
+    "ImageAnalyzer",
+    "QwenExtractor",
+    "TableConverter",
     "__version__"
 ]

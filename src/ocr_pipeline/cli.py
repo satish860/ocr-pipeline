@@ -4,7 +4,7 @@ import sys
 import argparse
 from pathlib import Path
 
-from .qwen_extractor import extract_document
+from .ocr_pipeline import OCRPipeline
 
 
 def process_image(
@@ -19,11 +19,11 @@ def process_image(
     Args:
         image_path: Path to the image file
         include_images: Whether to extract and embed images (default: True)
-        convert_tables_to_html: Whether to convert LaTeX tables to HTML using Gemini 2.5 Flash
+        convert_tables_to_html: Whether to convert LaTeX tables to HTML
         refine: Whether to refine extraction using Claude Sonnet 4.5 (OLMoCR-2 approach)
 
     Returns:
-        Result dictionary from extract_document() with:
+        Result dictionary from OCRPipeline.apply() with:
         - success: bool
         - markdown: str (with inline base64 images if include_images=True)
                     HTML format if refine=True, otherwise markdown with LaTeX
@@ -36,12 +36,16 @@ def process_image(
     if not Path(image_path).exists():
         return {'success': False, 'error': 'File not found', 'markdown': '', 'images': [], 'elements': []}
 
-    # Extract document
-    result = extract_document(
+    # Create pipeline and extract document
+    pipeline = OCRPipeline(
+        preprocess=True,  # Enable preprocessing by default
+        refine=refine,
+        convert_tables_to_html=convert_tables_to_html
+    )
+
+    result = pipeline.apply(
         image_path,
-        include_images=include_images,
-        convert_tables_to_html=convert_tables_to_html,
-        refine=refine
+        include_images=include_images
     )
 
     return result
