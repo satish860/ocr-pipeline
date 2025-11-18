@@ -17,11 +17,12 @@ import numpy as np
 from tqdm import tqdm
 
 from ocr_pipeline import OCRPipeline
+from .retry_utils import retry_with_backoff
 
-
+@retry_with_backoff(max_retries=3, initial_delay=0.5, backoff_factor=2.0)
 def _process_single_page(args: Tuple) -> Tuple[int, Image.Image]:
     """
-    Worker function to process a single PDF page.
+    Worker function to process a single PDF page with retry logic.
     This runs in a separate thread.
     
     Args:
@@ -115,9 +116,10 @@ def convert_pdf_to_images(
         pdf_document.close()
 
 
+@retry_with_backoff(max_retries=3, initial_delay=1.0, backoff_factor=2.0)
 def _process_page(page_data: tuple) -> Dict[str, Any]:
     """
-    Process a single page image using OCR Pipeline.
+    Process a single page image using OCR Pipeline with retry logic.
     
     Args:
         page_data: Tuple of (page_number, image, pipeline_config)
