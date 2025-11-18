@@ -38,12 +38,12 @@ def retry_with_backoff(
                 except Exception as e:
                     last_exception = e
                     if attempt < max_retries:
-                        print(f"⚠️  Attempt {attempt + 1}/{max_retries + 1} failed: {str(e)}")
+                        print(f"[WARNING] Attempt {attempt + 1}/{max_retries + 1} failed: {str(e)}")
                         print(f"   Retrying in {delay:.1f}s...")
                         time.sleep(delay)
                         delay = min(delay * backoff_factor, max_delay)
                     else:
-                        print(f"❌ All {max_retries + 1} attempts failed")
+                        print(f"[ERROR] All {max_retries + 1} attempts failed")
             
             raise last_exception
         

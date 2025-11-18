@@ -308,29 +308,29 @@ class OCRPipeline:
                 
                 if result['success']:
                     if attempt > 0:
-                        print(f"✓ Extraction succeeded on attempt {attempt + 1}")
+                        print(f"Attempt {attempt + 1}: Extraction succeeded")
                     return result
                 else:
                     # If extraction failed but no exception, return the result
                     last_error = result.get('error', 'Unknown error')
                     if attempt < max_retries:
-                        print(f"⚠️  Extraction attempt {attempt + 1}/{max_retries + 1} failed: {last_error}")
+                        print(f"[WARNING] Attempt {attempt + 1}: Extraction failed: {last_error}")
                         print(f"   Retrying in {delay:.1f}s...")
                         time.sleep(delay)
                         delay = min(delay * 2.0, 60.0)
                     else:
-                        print(f"❌ Extraction failed after {max_retries + 1} attempts")
+                        print(f"[ERROR] Extraction failed after {max_retries + 1} attempts")
                         return result
                         
             except Exception as e:
                 last_error = str(e)
                 if attempt < max_retries:
-                    print(f"⚠️  Extraction attempt {attempt + 1}/{max_retries + 1} failed: {last_error}")
+                    print(f"[WARNING] Attempt {attempt + 1}: Extraction failed: {last_error}")
                     print(f"   Retrying in {delay:.1f}s...")
                     time.sleep(delay)
                     delay = min(delay * 2.0, 60.0)
                 else:
-                    print(f"❌ Extraction failed after {max_retries + 1} attempts: {last_error}")
+                    print(f"[ERROR] Extraction failed after {max_retries + 1} attempts: {last_error}")
                     return {
                         'success': False,
                         'markdown': '',
