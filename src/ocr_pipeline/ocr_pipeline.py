@@ -76,7 +76,7 @@ class OCRPipeline:
 
     def apply(
         self,
-        image_path: str,
+        image_path,
         include_images: bool = True,
         include_usage: bool = False
     ) -> Dict:
@@ -87,7 +87,7 @@ class OCRPipeline:
         inline base64 images and a separate array of extracted images.
 
         Args:
-            image_path: Path to the image file
+            image_path: Path to the image file or PIL Image object
             include_images: Whether to extract and embed images
             include_usage: Whether to include usage/cost data in response
 
@@ -106,7 +106,10 @@ class OCRPipeline:
         """
         try:
             # Step 1: Load original image
-            original_image = Image.open(image_path)
+            if isinstance(image_path, Image.Image):
+                original_image = image_path
+            else:
+                original_image = Image.open(image_path)
             image_to_process = original_image
             quality_result = None
 
@@ -269,13 +272,13 @@ class OCRPipeline:
                 'error': str(e)
             }
 
-    def _save_output(self, content: str, image_path: str, stage: str):
+    def _save_output(self, content: str, image_path, stage: str):
         """
         Save output to file in output directory.
 
         Args:
             content: Markdown/HTML content to save
-            image_path: Original image path (used for filename)
+            image_path: Original image path (str) or PIL Image object (used for filename)
             stage: Stage name (e.g., "0_qwen_original", "1_iteration_1", "2_iteration_2")
         """
         if not self.output_dir:
@@ -286,7 +289,12 @@ class OCRPipeline:
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Generate filename: image_name_stage_timestamp.md
-        image_name = Path(image_path).stem
+        if isinstance(image_path, str):
+            image_name = Path(image_path).stem
+        else:
+            # PIL Image object - use generic name
+            image_name = "image"
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{image_name}_{stage}_{timestamp}.md"
 
