@@ -140,8 +140,10 @@ def _process_page(page_data: tuple) -> Dict[str, Any]:
     
     # Add page number to the result
     result['page_number'] = page_number
+    processing_time = round(time.time() - start_time, 2)
+    result['processing_time'] = processing_time
     
-    print(f"Page {page_number} processed in {round(time.time() - start_time, 2)}s")
+    print(f"Page {page_number} processed in {processing_time}s")
     return result
 
 

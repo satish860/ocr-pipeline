@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image
+import time
 
 from ocr_pipeline import OCRPipeline
 from ocr_pipeline.pdf_extractor import process_pdf, _convert_to_serializable
@@ -67,6 +68,7 @@ class PDFProcessingResponse(BaseModel):
     refinement_analysis: Optional[dict] = None
     error: Optional[str] = None
     page_number: Optional[int] = None
+    processing_time: Optional[float] = None
 
 @app.post("/process-image", response_model=ImageProcessingResponse)
 async def process_image(
@@ -172,6 +174,7 @@ async def process_pdf_endpoint(
         List of processing results, one per page
     """
     try:
+        start_time = time.time()
         # Validate file type
         if file.content_type != "application/pdf":
             raise HTTPException(
@@ -205,12 +208,16 @@ async def process_pdf_endpoint(
                 dpi=dpi,
             )
             
-            return results
+            # Convert to serializable format (handles numpy types)
+            return _convert_to_serializable(results)
             
         finally:
             # Clean up temporary file
             if temp_pdf_path.exists():
                 temp_pdf_path.unlink()
+            processing_time = round(time.time() - start_time, 2)
+            print(f"PDF processed in {processing_time}s")
+            print(f"Processing time: {processing_time}s")
         
     except HTTPException:
         raise
