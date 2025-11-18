@@ -8,6 +8,7 @@ and ClaudeRefiner components to perform end-to-end document extraction.
 from typing import Dict, Optional
 from pathlib import Path
 from datetime import datetime
+import time
 
 from PIL import Image
 
@@ -15,6 +16,7 @@ from .image_analyzer import ImageAnalyzer
 from .qwen_extractor import QwenExtractor
 from .table_converter import TableConverter
 from .refinement_analyzer import RefinementAnalyzer
+from .retry_utils import retry_with_backoff
 
 # Import Claude refiner (conditional to avoid import errors)
 try:
@@ -144,9 +146,9 @@ class OCRPipeline:
                         print("Image quality is good, skipping preprocessing")
                         quality_metrics['preprocessing_applied'] = False
 
-            # Step 3: Extract with QwenVL
+            # Step 3: Extract with QwenVL (with retry logic)
             print("Extracting with QwenVL...")
-            extraction_result = self.extractor.extract(
+            extraction_result = self._extract_with_retry(
                 image_to_process,
                 include_images=include_images,
                 include_usage=include_usage
@@ -271,6 +273,82 @@ class OCRPipeline:
                 'quality': None,
                 'error': str(e)
             }
+
+    def _extract_with_retry(
+        self,
+        image_to_process,
+        include_images: bool = True,
+        include_usage: bool = False,
+        max_retries: int = 3,
+        initial_delay: float = 1.0
+    ) -> Dict:
+        """
+        Extract with QwenVL with retry logic and exponential backoff.
+        
+        Args:
+            image_to_process: Image to process
+            include_images: Whether to include images in extraction
+            include_usage: Whether to include usage data
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds before first retry
+        
+        Returns:
+            Extraction result
+        """
+        delay = initial_delay
+        last_error = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                result = self.extractor.extract(
+                    image_to_process,
+                    include_images=include_images,
+                    include_usage=include_usage
+                )
+                
+                if result['success']:
+                    if attempt > 0:
+                        print(f"Attempt {attempt + 1}: Extraction succeeded")
+                    return result
+                else:
+                    # If extraction failed but no exception, return the result
+                    last_error = result.get('error', 'Unknown error')
+                    if attempt < max_retries:
+                        print(f"[WARNING] Attempt {attempt + 1}: Extraction failed: {last_error}")
+                        print(f"   Retrying in {delay:.1f}s...")
+                        time.sleep(delay)
+                        delay = min(delay * 2.0, 60.0)
+                    else:
+                        print(f"[ERROR] Extraction failed after {max_retries + 1} attempts")
+                        return result
+                        
+            except Exception as e:
+                last_error = str(e)
+                if attempt < max_retries:
+                    print(f"[WARNING] Attempt {attempt + 1}: Extraction failed: {last_error}")
+                    print(f"   Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+                    delay = min(delay * 2.0, 60.0)
+                else:
+                    print(f"[ERROR] Extraction failed after {max_retries + 1} attempts: {last_error}")
+                    return {
+                        'success': False,
+                        'markdown': '',
+                        'images': [],
+                        'elements': [],
+                        'usage': {},
+                        'error': last_error
+                    }
+        
+        # Fallback (should not reach here)
+        return {
+            'success': False,
+            'markdown': '',
+            'images': [],
+            'elements': [],
+            'usage': {},
+            'error': last_error or 'Unknown error'
+        }
 
     def _save_output(self, content: str, image_path, stage: str):
         """

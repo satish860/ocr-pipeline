@@ -17,11 +17,12 @@ import numpy as np
 from tqdm import tqdm
 
 from ocr_pipeline import OCRPipeline
+from .retry_utils import retry_with_backoff
 
-
+@retry_with_backoff(max_retries=3, initial_delay=0.5, backoff_factor=2.0)
 def _process_single_page(args: Tuple) -> Tuple[int, Image.Image]:
     """
-    Worker function to process a single PDF page.
+    Worker function to process a single PDF page with retry logic.
     This runs in a separate thread.
     
     Args:
@@ -84,8 +85,6 @@ def convert_pdf_to_images(
         if max_workers is None:
             max_workers = (os.cpu_count() or 1) * 2
         
-        print(f"📄 Converting PDF to images ({total_pages} pages) using {max_workers} threads...")
-        
         # Process pages in parallel using threads
         results = {}
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -107,7 +106,7 @@ def convert_pdf_to_images(
         # Sort results by page number to maintain order
         images = [results[i] for i in range(total_pages)]
         
-        print(f"✓ Converted {len(images)} pages to images\n")
+        print(f"Converted {len(images)} pages to images using {max_workers} threads\n")
         return images
         
     finally:
@@ -115,9 +114,10 @@ def convert_pdf_to_images(
         pdf_document.close()
 
 
+@retry_with_backoff(max_retries=3, initial_delay=1.0, backoff_factor=2.0)
 def _process_page(page_data: tuple) -> Dict[str, Any]:
     """
-    Process a single page image using OCR Pipeline.
+    Process a single page image using OCR Pipeline with retry logic.
     
     Args:
         page_data: Tuple of (page_number, image, pipeline_config)
@@ -196,7 +196,7 @@ def save_results_to_file(results: List[Dict[str, Any]], output_folder: Optional[
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(serializable_results, f, indent=2, ensure_ascii=False)
     
-    print(f"💾 Results saved to: {output_path}")
+    print(f"Results saved to: {output_path}")
 
 
 def process_pdf(
@@ -210,6 +210,7 @@ def process_pdf(
     max_refinement_iterations: int = 2,
     convert_tables_to_html: bool = True,
     max_workers: int = 4,
+    save_results: bool = False,
     **extract_kwargs
 ) -> List[Dict[str, Any]]:
     """
@@ -259,7 +260,7 @@ def process_pdf(
         for i, img in enumerate(images, 1)
     ]
     
-    print(f"🔍 Processing {len(images)} pages with OCR Pipeline...")
+    print(f"Processing {len(images)} pages with OCR Pipeline...")
     
     # Process pages in parallel using ThreadPoolExecutor with progress bar
     results = [None] * len(images)  # Pre-allocate list to maintain order
@@ -281,7 +282,7 @@ def process_pdf(
                     
                     # Update progress bar with status
                     page_num = result['page_number']
-                    status = "✓" if result.get('success', True) else "✗"
+                    status = "[OK]" if result.get('success', True) else "[FAIL]"
                     time_taken = result.get('processing_time', 0)
                     pbar.set_postfix_str(f"Page {page_num} {status} ({time_taken:.1f}s)")
                     pbar.update(1)
@@ -295,15 +296,15 @@ def process_pdf(
                         'error': str(e),
                         'processing_time': 0
                     }
-                    pbar.set_postfix_str(f"Page {page_num} ✗ ERROR")
+                    pbar.set_postfix_str(f"Page {page_num} [FAIL] ERROR")
                     pbar.update(1)
-                    print(f"\n⚠️  Error processing page {page_num}: {e}")
+                    print(f"\n[ERROR] Error processing page {page_num}: {e}")
 
-    # Save results to a file
-    print("\n💾 Saving results...")
-    save_results_to_file(results, output_folder)
+    # Save results to a file if save_results is enabled
+    if save_results:
+        save_results_to_file(results, output_folder)
     
     # Print summary
     total_time = time.time() - overall_start
-    print(f"\n✓ PDF processing complete. {len(results)} pages processed in {total_time:.2f}s.")    
+    print(f"PDF processing complete. {len(results)} pages processed in {total_time:.2f}s.")
     return results
