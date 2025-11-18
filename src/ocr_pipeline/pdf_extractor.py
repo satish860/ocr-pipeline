@@ -6,10 +6,10 @@ to images and processing them with QwenVL OCR.
 
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
-from io import BytesIO
+from typing import List, Dict, Any, Optional, Union, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+import os
 
 import fitz  # PyMuPDF
 from PIL import Image
@@ -19,21 +19,47 @@ from tqdm import tqdm
 from ocr_pipeline import OCRPipeline
 
 
+def _process_single_page(args: Tuple) -> Tuple[int, Image.Image]:
+    """
+    Worker function to process a single PDF page.
+    This runs in a separate thread.
+    
+    Args:
+        args: Tuple of (pdf_document, page_num, dpi)
+    
+    Returns:
+        Tuple of (page_num, PIL Image)
+    """
+    pdf_document, page_num, dpi = args
+    
+    # Load and convert the page
+    page = pdf_document.load_page(page_num)
+    mat = fitz.Matrix(dpi/72, dpi/72)
+    pix = page.get_pixmap(matrix=mat, alpha=False)
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    
+    return page_num, img
+
+
 def convert_pdf_to_images(
     pdf_path: Union[str, Path],
     output_folder: Optional[Union[str, Path]] = None,
     dpi: int = 300,
-    fmt: str = 'png'
+    fmt: str = 'png',
+    max_workers: Optional[int] = None
 ) -> List[Image.Image]:
     """
-    Convert a PDF file to a list of PIL Images.
+    Convert a PDF file to a list of PIL Images using parallel processing with threads.
+    
     Args:
         pdf_path: Path to the PDF file
         output_folder: Optional folder to save the images. If None, images won't be saved.
         dpi: DPI for the output images
         fmt: Output image format (png, jpeg, etc.)
+        max_workers: Maximum number of worker threads. If None, uses CPU count * 2.
+    
     Returns:
-        List of PIL Image objects
+        List of PIL Image objects (in page order)
     """
     # Convert to Path object if it's a string
     pdf_path = Path(pdf_path) if isinstance(pdf_path, str) else pdf_path
@@ -46,37 +72,47 @@ def convert_pdf_to_images(
         output_folder = Path(output_folder)
         output_folder.mkdir(parents=True, exist_ok=True)
     
-    images = []
-    
-    # Open the PDF
+    # Open the PDF once and share it across threads
     pdf_document = fitz.open(pdf_path)
+    total_pages = len(pdf_document)
     
     try:
-        # Iterate through each page with progress bar
-        print(f"📄 Converting PDF to images ({len(pdf_document)} pages)...")
-        for page_num in tqdm(range(len(pdf_document)), desc="Converting pages", unit="page"):
-            # Get the page
-            page = pdf_document.load_page(page_num)
+        # Prepare arguments for each page
+        page_args = [(pdf_document, page_num, dpi) for page_num in range(total_pages)]
+        
+        # Default to CPU count * 2 for I/O-bound tasks
+        if max_workers is None:
+            max_workers = (os.cpu_count() or 1) * 2
+        
+        print(f"📄 Converting PDF to images ({total_pages} pages) using {max_workers} threads...")
+        
+        # Process pages in parallel using threads
+        results = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            futures = {executor.submit(_process_single_page, args): args[1] 
+                       for args in page_args}
             
-            # Convert to image (pix)
-            mat = fitz.Matrix(dpi/72, dpi/72)  # 72 is the default DPI in PyMuPDF
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            
-            # Convert to PIL Image
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            images.append(img)
-            
-            # Save image if output folder is provided
-            if output_folder is not None:
-                img_path = output_folder / f"page_{page_num + 1:03d}.{fmt}"
-                img.save(img_path, format=fmt.upper(), dpi=(dpi, dpi))
+            # Collect results with progress bar
+            for future in tqdm(as_completed(futures), total=len(futures), 
+                              desc="Converting pages", unit="page"):
+                page_num, img = future.result()
+                results[page_num] = img
                 
+                # Save image if output folder is provided
+                if output_folder is not None:
+                    img_path = output_folder / f"page_{page_num + 1:03d}.{fmt}"
+                    img.save(img_path, format=fmt.upper(), dpi=(dpi, dpi))
+        
+        # Sort results by page number to maintain order
+        images = [results[i] for i in range(total_pages)]
+        
+        print(f"✓ Converted {len(images)} pages to images\n")
+        return images
+        
     finally:
         # Make sure to close the document
         pdf_document.close()
-    
-    print(f"✓ Converted {len(images)} pages to images\n")
-    return images
 
 
 def _process_page(page_data: tuple) -> Dict[str, Any]:
@@ -188,7 +224,7 @@ def process_pdf(
         agentic_refine: Whether to use iterative agentic refinement (default: False)
         auto_refine: Whether to automatically refine only if content needs it (default: False)
         max_refinement_iterations: Maximum iterations for agentic refinement (default: 2)
-        convert_tables_to_html: Whether to convert LaTeX tables to HTML (default: False)
+        convert_tables_to_html: Whether to convert LaTeX tables to HTML (default: True)
         max_workers: Number of worker threads for parallel processing (default: 4)
         **extract_kwargs: Additional arguments (e.g., dpi, min_pixels, max_pixels)
     
