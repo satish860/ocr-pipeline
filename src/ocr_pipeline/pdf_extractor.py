@@ -212,6 +212,7 @@ def process_pdf(
     max_refinement_iterations: int = 2,
     convert_tables_to_html: bool = True,
     max_workers: int = 4,
+    save_results: bool = False,
     **extract_kwargs
 ) -> List[Dict[str, Any]]:
     """
@@ -301,9 +302,10 @@ def process_pdf(
                     pbar.update(1)
                     print(f"\n⚠️  Error processing page {page_num}: {e}")
 
-    # Save results to a file
-    print("\n💾 Saving results...")
-    save_results_to_file(results, output_folder)
+    # Save results to a file if save_results is enabled
+    if save_results:
+        print("\n💾 Saving results...")
+        save_results_to_file(results, output_folder)
     
     # Print summary
     total_time = time.time() - overall_start

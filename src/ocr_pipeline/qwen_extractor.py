@@ -83,7 +83,21 @@ Convert this document to markdown format with the following requirements:
   - Right-aligned text: <div align="right">text</div>
   - Center-aligned text: <div align="center">text</div>
   - Left-aligned text: no tags needed (default)
-- Use <br> tags for line breaks within aligned sections
+- Preserve indentation using &nbsp; (non-breaking spaces):
+  - Each level of indentation = 4 &nbsp; characters (&nbsp;&nbsp;&nbsp;&nbsp;)
+  - Common uses: paragraph first-line indents, nested lists, quoted text, tabbed content
+  - Example: &nbsp;&nbsp;&nbsp;&nbsp;This is an indented line
+  - For multiple indentation levels, multiply: 8 spaces = &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+- Use <br> tags for ALL line breaks:
+  - Convert every new line (including blank lines) to <br>
+  - Within aligned sections, use <br> between all consecutive lines
+  - For blank lines in the document, use <br> to preserve the spacing
+  - Multiple consecutive blank lines = multiple <br> tags
+- Line break rules:
+  - New line in document = add <br> in output
+  - Blank line in document = add <br> in output
+  - Keep all lines with the same alignment within one <div> block using <br> separators
+  - Only close </div> when alignment changes
 - Represent all tables in LaTeX format using \\\\begin{tabular} and \\\\end{tabular}
 - Add coordinate annotations ONLY for these special elements using HTML comments (0-1000 scale):
   - Tables: <!-- Table (x1, y1, x2, y2) --> followed by the table content
