@@ -5,6 +5,7 @@ to images and processing them with QwenVL OCR.
 """
 
 import json
+import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -211,7 +212,7 @@ def process_pdf(
     auto_refine: bool = False,
     max_refinement_iterations: int = 2,
     convert_tables_to_html: bool = True,
-    max_workers: int = 4,
+    max_workers: int = 10,
     save_results: bool = False,
     **extract_kwargs
 ) -> List[Dict[str, Any]]:
@@ -310,3 +311,190 @@ def process_pdf(
     total_time = time.time() - overall_start
     print(f"PDF processing complete. {len(results)} pages processed in {total_time:.2f}s.")
     return results
+
+
+async def _process_pages_batch_async(images: List[Image.Image], pipeline_config: Dict, max_concurrent: int = 5) -> List[Dict[str, Any]]:
+    """
+    Process multiple PDF pages using OCRPipeline.apply_fast for optimized parallel processing.
+    
+    This method uses apply_fast (async) for concurrent processing with semaphore-based rate limiting.
+    More efficient and simpler than batch processing.
+    
+    Args:
+        images: List of PIL Image objects (PDF pages)
+        pipeline_config: Configuration for OCR pipeline
+        max_concurrent: Maximum number of concurrent API requests
+    
+    Returns:
+        List of extraction results for each page with page numbers
+    """
+    # Initialize OCR pipeline with configuration
+    pipeline = OCRPipeline(**pipeline_config)
+    
+    # Create semaphore to limit concurrent requests
+    semaphore = asyncio.Semaphore(max_concurrent)
+    
+    async def process_page_with_semaphore(page_num: int, image: Image.Image) -> Dict[str, Any]:
+        """Process a single page with semaphore rate limiting."""
+        async with semaphore:
+            start_time = time.time()
+            result = await pipeline.apply_fast(
+                image_path=image,
+                include_images=pipeline_config.get('include_images', True),
+                include_usage=False
+            )
+            result['page_number'] = page_num
+            result['processing_time'] = round(time.time() - start_time, 2)
+            return result
+    
+    # Create tasks for all pages
+    tasks = [
+        process_page_with_semaphore(idx + 1, img)
+        for idx, img in enumerate(images)
+    ]
+    
+    # Process with progress bar
+    results = [None] * len(images)
+    with tqdm(total=len(images), desc="Processing pages", unit="page") as pbar:
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            page_num = result['page_number']
+            results[page_num - 1] = result
+            
+            # Update progress bar with status
+            status = "[OK]" if result.get('success', True) else "[FAIL]"
+            time_taken = result.get('processing_time', 0)
+            pbar.set_postfix_str(f"Page {page_num} {status} ({time_taken:.1f}s)")
+            pbar.update(1)
+    
+    return results
+
+
+async def process_pdf_async_impl(
+    pdf_path: Union[str, Path],
+    output_folder: Optional[Union[str, Path]] = "./output",
+    save_images: bool = False,
+    preprocess: bool = True,
+    refine: bool = False,
+    agentic_refine: bool = False,
+    auto_refine: bool = False,
+    max_refinement_iterations: int = 2,
+    convert_tables_to_html: bool = True,
+    max_concurrent_requests: int = 5,
+    save_results: bool = False,
+    **extract_kwargs
+) -> List[Dict[str, Any]]:
+    """
+    Internal async implementation for PDF processing with concurrent API calls.
+    
+    This is the actual async function that should be awaited from async contexts
+    like FastAPI endpoints.
+    
+    Args:
+        pdf_path: Path to the PDF file
+        output_folder: Optional folder to save the extracted images and results
+        save_images: Whether to save the extracted page images
+        preprocess: Whether to apply image preprocessing (default: True)
+        refine: Whether to refine extraction using Claude (default: False)
+        agentic_refine: Whether to use iterative agentic refinement (default: False)
+        auto_refine: Whether to automatically refine only if content needs it (default: False)
+        max_refinement_iterations: Maximum iterations for agentic refinement (default: 2)
+        convert_tables_to_html: Whether to convert LaTeX tables to HTML (default: True)
+        max_concurrent_requests: Maximum number of concurrent API requests (default: 5)
+        save_results: Whether to save results to file (default: False)
+        **extract_kwargs: Additional arguments (e.g., dpi, min_pixels, max_pixels)
+    
+    Returns:
+        List of extraction results for each page with OCR pipeline processing
+    """
+    overall_start = time.time()
+
+    # Convert PDF to images
+    images = convert_pdf_to_images(
+        pdf_path=pdf_path,
+        output_folder=output_folder if save_images else None,
+        dpi=extract_kwargs.pop('dpi', 300)
+    )
+    
+    # Build OCR pipeline configuration
+    pipeline_config = {
+        'preprocess': preprocess,
+        'refine': refine,
+        'agentic_refine': agentic_refine,
+        'auto_refine': auto_refine,
+        'max_refinement_iterations': extract_kwargs.pop('max_refinement_iterations', 2),
+        'convert_tables_to_html': extract_kwargs.pop('convert_tables_html', True),
+        'output_dir': output_folder,
+        'min_pixels': extract_kwargs.pop('min_pixels', 512 * 32 * 32),
+        'max_pixels': extract_kwargs.pop('max_pixels', 4608 * 32 * 32),
+    }
+    
+    print(f"Processing {len(images)} pages with OCR Pipeline (async mode)...")
+
+    # Run async processing using batch async method
+    results = await _process_pages_batch_async(images, pipeline_config, max_concurrent_requests)
+
+    # Save results to a file if save_results is enabled
+    if save_results:
+        save_results_to_file(results, output_folder)
+    
+    # Print summary
+    total_time = time.time() - overall_start
+    print(f"PDF processing complete. {len(results)} pages processed in {total_time:.2f}s.")
+    return results
+
+
+def process_pdf_async(
+    pdf_path: Union[str, Path],
+    output_folder: Optional[Union[str, Path]] = "./output",
+    save_images: bool = False,
+    preprocess: bool = True,
+    refine: bool = False,
+    agentic_refine: bool = False,
+    auto_refine: bool = False,
+    max_refinement_iterations: int = 2,
+    convert_tables_to_html: bool = True,
+    max_concurrent_requests: int = 5,
+    save_results: bool = False,
+    **extract_kwargs
+) -> List[Dict[str, Any]]:
+    """
+    Process a PDF file with concurrent API calls using asyncio.
+    
+    This version uses async/await for concurrent API requests, which is much faster
+    than the threaded version when the bottleneck is API latency.
+    
+    This is a synchronous wrapper that runs the async implementation using asyncio.run().
+    For use in synchronous contexts. For async contexts (like FastAPI), use process_pdf_async_impl().
+    
+    Args:
+        pdf_path: Path to the PDF file
+        output_folder: Optional folder to save the extracted images and results
+        save_images: Whether to save the extracted page images
+        preprocess: Whether to apply image preprocessing (default: True)
+        refine: Whether to refine extraction using Claude (default: False)
+        agentic_refine: Whether to use iterative agentic refinement (default: False)
+        auto_refine: Whether to automatically refine only if content needs it (default: False)
+        max_refinement_iterations: Maximum iterations for agentic refinement (default: 2)
+        convert_tables_to_html: Whether to convert LaTeX tables to HTML (default: True)
+        max_concurrent_requests: Maximum number of concurrent API requests (default: 5)
+        save_results: Whether to save results to file (default: False)
+        **extract_kwargs: Additional arguments (e.g., dpi, min_pixels, max_pixels)
+    
+    Returns:
+        List of extraction results for each page with OCR pipeline processing
+    """
+    return asyncio.run(process_pdf_async_impl(
+        pdf_path=pdf_path,
+        output_folder=output_folder,
+        save_images=save_images,
+        preprocess=preprocess,
+        refine=refine,
+        agentic_refine=agentic_refine,
+        auto_refine=auto_refine,
+        max_refinement_iterations=max_refinement_iterations,
+        convert_tables_to_html=convert_tables_to_html,
+        max_concurrent_requests=max_concurrent_requests,
+        save_results=save_results,
+        **extract_kwargs
+    ))

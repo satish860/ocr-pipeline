@@ -6,6 +6,7 @@ Provides REST API endpoints for processing images and PDFs with OCR.
 
 import io
 import base64
+import asyncio
 from pathlib import Path
 from typing import Optional, Union, List
 
@@ -15,9 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image
 import time
+import traceback
 
 from ocr_pipeline import OCRPipeline
-from ocr_pipeline.pdf_extractor import process_pdf, _convert_to_serializable
+from ocr_pipeline.pdf_extractor import process_pdf_async_impl, _convert_to_serializable
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -138,7 +140,7 @@ async def process_image(
             detail=f"Error processing image: {str(e)}"
         )
 
-@app.post("/process-pdf", response_model=List[PDFProcessingResponse])
+@app.post("/process-pdf")
 async def process_pdf_endpoint(
     file: UploadFile = File(...),
     preprocess: bool = Query(True),
@@ -150,7 +152,7 @@ async def process_pdf_endpoint(
     output_folder: Optional[Union[str, Path]] = None,
     save_images: bool = Query(False),
     max_refinement_iterations: int = Query(2),
-    max_workers: int = Query(4),
+    max_workers: int = Query(10),
     save_results: bool = Query(False),
 ):
     """
@@ -173,6 +175,7 @@ async def process_pdf_endpoint(
     Returns:
         List of processing results, one per page
     """
+    temp_pdf_path = None
     try:
         start_time = time.time()
         # Validate file type
@@ -192,40 +195,47 @@ async def process_pdf_endpoint(
         with open(temp_pdf_path, "wb") as f:
             f.write(content)
         
-        try:
-            # Use process_pdf to handle PDF conversion and OCR processing
-            results = process_pdf(
-                pdf_path=temp_pdf_path,
-                output_folder=None,
-                save_images=False,
-                preprocess=preprocess,
-                refine=refine,
-                agentic_refine=agentic_refine,
-                auto_refine=auto_refine,
-                convert_tables_to_html=convert_tables_to_html,
-                max_workers=max_workers,
-                save_results=save_results,
-                dpi=dpi,
-            )
-            
-            # Convert to serializable format (handles numpy types)
-            return _convert_to_serializable(results)
-            
-        finally:
-            # Clean up temporary file
-            if temp_pdf_path.exists():
-                temp_pdf_path.unlink()
-            processing_time = round(time.time() - start_time, 2)
-            print(f"PDF processed in {processing_time}s")
-            print(f"Processing time: {processing_time}s")
+        # Use process_pdf_async_impl to handle PDF conversion and OCR processing with concurrent API calls
+        results = await process_pdf_async_impl(
+            pdf_path=temp_pdf_path,
+            output_folder=None,
+            save_images=False,
+            preprocess=preprocess,
+            refine=refine,
+            agentic_refine=agentic_refine,
+            auto_refine=auto_refine,
+            convert_tables_to_html=convert_tables_to_html,
+            max_concurrent_requests=max_workers,
+            save_results=save_results,
+            dpi=dpi,
+        )
+        
+        # Convert to serializable format (handles numpy types)
+        serialized_results = _convert_to_serializable(results)
+        
+        processing_time = round(time.time() - start_time, 2)
+        print(f"PDF processed in {processing_time}s")
+        print(f"Processing time: {processing_time}s")
+        
+        # Return as JSONResponse to bypass Pydantic validation
+        return JSONResponse(content=serialized_results)
         
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error processing PDF: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Error processing PDF: {str(e)}"
         )
+    finally:
+        # Clean up temporary file
+        if temp_pdf_path and temp_pdf_path.exists():
+            try:
+                temp_pdf_path.unlink()
+            except Exception as e:
+                print(f"Warning: Could not delete temp file {temp_pdf_path}: {e}")
 
 if __name__ == "__main__":
     import uvicorn

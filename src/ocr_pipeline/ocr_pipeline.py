@@ -274,6 +274,87 @@ class OCRPipeline:
                 'error': str(e)
             }
 
+    async def apply_fast(
+        self,
+        image_path,
+        include_images: bool = True,
+        include_usage: bool = False
+    ) -> Dict:
+        """
+        Apply OCR pipeline to extract document content (async).
+
+        Simplified version with only QwenVL extraction and LaTeX table conversion.
+
+        Args:
+            image_path: Path to the image file or PIL Image object
+            include_images: Whether to extract and embed images
+            include_usage: Whether to include usage/cost data in response
+
+        Returns:
+            Dict with:
+            - success: Boolean indicating success
+            - markdown: Markdown with inline base64 images (if include_images=True)
+            - images: List of extracted images [{type, base64, bbox}]
+            - elements: List of detected elements with coordinates
+            - usage: Usage/cost data (if include_usage=True)
+            - error: Error message if success=False
+        """
+        try:
+
+            # Step 1: Load image
+            if isinstance(image_path, Image.Image):
+                image_to_process = image_path
+            else:
+                image_to_process = Image.open(image_path)
+
+            # Step 2: Extract with QwenVL async
+            print("Extracting with QwenVL...")
+            extraction_results = await self.extractor.extract_async(
+                [image_to_process],
+                include_images=include_images,
+                include_usage=include_usage
+            )
+            
+            # Get the first (and only) result
+            extraction_result = extraction_results[0]
+
+            if not extraction_result['success']:
+                return extraction_result
+
+            # Save QwenVL output if output_dir specified
+            if self.output_dir:
+                self._save_output(
+                    content=extraction_result['markdown'],
+                    image_path=image_path,
+                    stage="0_qwen_original"
+                )
+
+            # Step 3: Convert tables to HTML (if enabled)
+            if self.convert_tables_to_html and self.table_converter:
+                print("Converting LaTeX tables to HTML...")
+                conversion_result = self.table_converter.convert(
+                    extraction_result['markdown'],
+                    extraction_result['images']
+                )
+
+                if conversion_result['success']:
+                    extraction_result['markdown'] = conversion_result['markdown']
+                    print(f"Converted {conversion_result['converted_count']} tables to HTML")
+                else:
+                    print(f"Warning: Table conversion failed: {conversion_result['error']}")
+
+            return extraction_result
+
+        except Exception as e:
+            return {
+                'success': False,
+                'markdown': '',
+                'images': [],
+                'elements': [],
+                'usage': {},
+                'error': str(e)
+            }
+
     def _extract_with_retry(
         self,
         image_to_process,
