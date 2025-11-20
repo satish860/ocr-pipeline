@@ -10,10 +10,10 @@ import asyncio
 from pathlib import Path
 from typing import Dict, List
 
-import aiohttp
 import requests
 from PIL import Image
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 from .utils import (
     smart_resize,
@@ -310,7 +310,7 @@ class QwenExtractor:
         image_input,  # Can be str (file path) or PIL Image
         prompt: str = "qwenvl markdown",
         include_usage: bool = False,
-        session: aiohttp.ClientSession = None
+        client: AsyncOpenAI = None
     ) -> Dict:
         """
         Async version of OpenRouter API call with Qwen3-VL model.
@@ -320,7 +320,7 @@ class QwenExtractor:
             image_input: Either a file path (str) or PIL Image object
             prompt: Prompt to send
             include_usage: Whether to include usage/cost data in response
-            session: Optional aiohttp ClientSession for connection reuse
+            client: Optional AsyncOpenAI client for connection reuse
 
         Returns:
             Dict with:
@@ -356,61 +356,49 @@ class QwenExtractor:
                 height, width, min_pixels=self.min_pixels, max_pixels=self.max_pixels
             )
 
-            # Prepare API request
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-
-            payload = {
-                "model": "qwen/qwen3-vl-235b-a22b-instruct",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "min_pixels": self.min_pixels,
-                                "max_pixels": self.max_pixels,
-                                "image_url": {
-                                    "url": f"data:image/{image_format};base64,{base64_image}"
-                                }
-                            },
-                            {
-                                "type": "text",
-                                "text": prompt
-                            }
-                        ]
-                    }
-                ]
-            }
-
-            # Add usage tracking if requested
-            if include_usage:
-                payload["usage"] = {"include": True}
-
-            # Use provided session or create new one
-            should_close_session = False
-            if session is None:
-                session = aiohttp.ClientSession()
-                should_close_session = True
+            # Create client if not provided
+            should_close_client = False
+            if client is None:
+                client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url="https://openrouter.ai/api/v1"
+                )
+                should_close_client = True
 
             try:
-                async with session.post(url, headers=headers, json=payload) as response:
-                    response.raise_for_status()
-                    result = await response.json()
-                    content = result["choices"][0]["message"]["content"]
+                # Call OpenRouter API using OpenAI async client
+                response = await client.chat.completions.create(
+                    model="qwen/qwen3-vl-235b-a22b-instruct",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/{image_format};base64,{base64_image}"
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                }
+                            ]
+                        }
+                    ]
+                )
 
-                    return {
-                        'success': True,
-                        'markdown': content,
-                        'usage': result.get("usage", {}) if include_usage else {},
-                        'error': None
-                    }
+                content = response.choices[0].message.content
+
+                return {
+                    'success': True,
+                    'markdown': content,
+                    'usage': response.usage.model_dump() if include_usage and response.usage else {},
+                    'error': None
+                }
             finally:
-                if should_close_session:
-                    await session.close()
+                if should_close_client:
+                    await client.close()
 
         except Exception as e:
             return {
