@@ -77,57 +77,8 @@ class QwenExtractor:
         """
         try:
             # Enhanced prompt for QwenVL
-#             enhanced_prompt = """qwenvl markdown
-
-# Convert this document to markdown format with the following requirements:
-# - Extract ALL text content as markdown in natural reading order (top to bottom, left to right)
-# - Preserve text alignment using HTML tags:
-#   - Right-aligned text: <div align="right">text</div>
-#   - Center-aligned text: <div align="center">text</div>
-#   - Left-aligned text: no tags needed (default)
-# - Preserve indentation using &nbsp; (non-breaking spaces):
-#   - Each level of indentation = 4 &nbsp; characters (&nbsp;&nbsp;&nbsp;&nbsp;)
-#   - Common uses: paragraph first-line indents, nested lists, quoted text, tabbed content
-#   - Example: &nbsp;&nbsp;&nbsp;&nbsp;This is an indented line
-#   - For multiple indentation levels, multiply: 8 spaces = &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-# - Use <br> tags for ALL line breaks:
-#   - Convert every new line (including blank lines) to <br>
-#   - Within aligned sections, use <br> between all consecutive lines
-#   - For blank lines in the document, use <br> to preserve the spacing
-#   - Multiple consecutive blank lines = multiple <br> tags
-# - Line break rules:
-#   - New line in document = add <br> in output
-#   - Blank line in document = add <br> in output
-#   - Keep all lines with the same alignment within one <div> block using <br> separators
-#   - Only close </div> when alignment changes
-# - Represent all tables in LaTeX format using \\\\begin{tabular} and \\\\end{tabular}
-# - Add coordinate annotations ONLY for these special elements using HTML comments (0-1000 scale):
-#   - Tables: <!-- Table (x1, y1, x2, y2) --> followed by the table content
-#   - Images: <!-- Image (x1, y1, x2, y2) --> followed by image description
-#   - Charts/Graphs: <!-- Chart (x1, y1, x2, y2) --> followed by chart description
-#   - Signatures: <!-- Signature (x1, y1, x2, y2) --> followed by the signature text/name
-#   - Handwritten text/notes/stamps: <!-- Handwritten (x1, y1, x2, y2) --> followed by the handwritten text
-# - CRITICAL: Place each coordinate annotation immediately BEFORE its content at the correct position in reading order
-# - The signature annotation must appear where the signature actually appears in the document, not at the top
-# - Do NOT add coordinate annotations for regular typed text, paragraphs, or headings
-# - IMPORTANT: Identify and annotate ALL handwritten elements including stamps, signatures, and handwritten notes
-# - For tables with shared/tied ranks or merged cells, repeat the value in all rows that share it
-# - Maintain spatial/positional order of all elements in the output
-# - Detect the horizontal position of text and apply appropriate alignment (right/center/left)
-
-# CRITICAL TABLE EXTRACTION RULES:
-# - Pay EXTRA attention to faint, low-contrast, or difficult-to-read text in table cells
-# - CAREFULLY align each value with its correct column header - count columns meticulously
-# - If a cell appears empty or blank, output the value as empty (do NOT skip the column)
-# - For multi-line cells, combine lines with '/' separator (e.g., "104/22")
-# - Double-check column alignment: header row column count MUST match every data row column count
-# - Look closely at table borders and gridlines to determine cell boundaries
-# - If text is partially visible or cut off, transcribe what you can see
-# - For numbers, pay special attention to distinguishing similar digits (0 vs 8, 1 vs 7, 3 vs 8)
-# - Preserve exact numeric values - do NOT round or approximate
-# """
-
             enhanced_prompt = """qwenvl markdown"""
+
             # Call QwenVL API
             api_result = self._call_qwen_api(
                 image_input,
